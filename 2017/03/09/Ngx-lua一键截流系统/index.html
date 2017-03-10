@@ -1,0 +1,695 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh_Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.0" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Hexo, NexT" />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.0" />
+
+
+
+
+
+
+<meta name="description" content="背景由于某些服务的流量过大，为保护其后端服务，需要在接入层Nginx对某些服务流量进行截流。本系统可以提供按照百分比对指定域名的制定URI进行截流的功能
+界面管理员可以轻松在管理界面进行配置，接口界面大致如下
+
+实现采用nginx＋Lua的实现整个系统的截流功能，大致架构图如下：
+
+管理员在界面上写入数据，管理端服务会将数据放入redis集群，各个nginx节点，会定时从redis集群拉取截流数据">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ngx_lua一键截流系统">
+<meta property="og:url" content="http://yoursite.com/2017/03/09/Ngx-lua一键截流系统/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="背景由于某些服务的流量过大，为保护其后端服务，需要在接入层Nginx对某些服务流量进行截流。本系统可以提供按照百分比对指定域名的制定URI进行截流的功能
+界面管理员可以轻松在管理界面进行配置，接口界面大致如下
+
+实现采用nginx＋Lua的实现整个系统的截流功能，大致架构图如下：
+
+管理员在界面上写入数据，管理端服务会将数据放入redis集群，各个nginx节点，会定时从redis集群拉取截流数据">
+<meta property="og:image" content="http://yoursite.com/img/Ngx_lua一键截流系统/1.png">
+<meta property="og:image" content="http://yoursite.com/img/Ngx_lua一键截流系统/2.png">
+<meta property="og:image" content="http://yoursite.com/img/Ngx_lua一键截流系统/3.png">
+<meta property="og:image" content="http://yoursite.com/img/Ngx_lua一键截流系统/4.png">
+<meta property="og:updated_time" content="2017-03-10T02:53:45.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Ngx_lua一键截流系统">
+<meta name="twitter:description" content="背景由于某些服务的流量过大，为保护其后端服务，需要在接入层Nginx对某些服务流量进行截流。本系统可以提供按照百分比对指定域名的制定URI进行截流的功能
+界面管理员可以轻松在管理界面进行配置，接口界面大致如下
+
+实现采用nginx＋Lua的实现整个系统的截流功能，大致架构图如下：
+
+管理员在界面上写入数据，管理端服务会将数据放入redis集群，各个nginx节点，会定时从redis集群拉取截流数据">
+<meta name="twitter:image" content="http://yoursite.com/img/Ngx_lua一键截流系统/1.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post","offset":12,"offset_float":0,"b2t":false,"scrollpercent":false},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: 'Author'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2017/03/09/Ngx-lua一键截流系统/"/>
+
+
+
+
+
+  <title> Ngx_lua一键截流系统 | Hexo </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh_Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hexo</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            Startseite
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            Archiv
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            Tags
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/Ngx-lua一键截流系统/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="fantaotao">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Ngx_lua一键截流系统
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-03-09T19:23:45+08:00">
+                2017-03-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>由于某些服务的流量过大，为保护其后端服务，需要在接入层Nginx对某些服务流量进行截流。本系统可以提供按照百分比对指定域名的制定URI进行截流的功能</p>
+<h3 id="界面"><a href="#界面" class="headerlink" title="界面"></a>界面</h3><p>管理员可以轻松在管理界面进行配置，接口界面大致如下</p>
+<p><img src="/img/Ngx_lua一键截流系统/1.png" alt=""></p>
+<h3 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h3><p>采用nginx＋Lua的实现整个系统的截流功能，大致架构图如下：</p>
+<p><img src="/img/Ngx_lua一键截流系统/2.png" alt=""></p>
+<p>管理员在界面上写入数据，管理端服务会将数据放入redis集群，各个nginx节点，会定时从redis集群拉取截流数据。</p>
+<h3 id="服务接入"><a href="#服务接入" class="headerlink" title="服务接入"></a>服务接入</h3><p>为了对达到快速方便的截流目的，默认是每个服务都接入截流系统，而不需要进行nginx配置文件的修改。</p>
+<p>access_by_lua_file    “/etc/nginx/hlb-lua/access_lua/online_access.lua”;                （1）<br>server {</p>
+<pre><code>server_name        server1;
+</code></pre><p>}<br>server {<br>    server_name        server2;<br>}<br>server {</p>
+<pre><code>server_name        server3;
+</code></pre><p>}</p>
+<p>server {<br>    server_name        server4;<br>}</p>
+<p>这样能够到达全自动化的截流：<br>1 不需要在每个服务配置中做添加任何字段，也就意味着完全不用reload Nginx<br>2 针对某个服务下的某个路径进行截流，只需在管理端界面上输入数据即可完成</p>
+<h3 id="性能测试"><a href="#性能测试" class="headerlink" title="性能测试"></a>性能测试</h3><p>由于默认所有流量经过截流检测系统，需要比较造成的性能影响。计算截流逻辑的耗时。每组数据共采集5000条请求的日志，用ab实现压测，计算其在截流逻辑处的平均耗时。共测试10组数据</p>
+<p><img src="/img/Ngx_lua一键截流系统/3.png" alt=""></p>
+<p>由压测结果来看，截流逻辑耗时稳定在20us以下。</p>
+<h3 id="灾难测试"><a href="#灾难测试" class="headerlink" title="灾难测试"></a>灾难测试</h3><p>截流系统依赖redis集群，考虑到集群的挂掉后对整改系统的影响，需要进行灾难测试。灾难测试分为两部分，分别是对管理端的影响和对Nginx节点的影响。<br>说明：由于所有截流数据缓存在集群的一个分片上，故灾难测试在该分片上进行。下面说的分片特指存放截流数据的分片</p>
+<p><img src="/img/Ngx_lua一键截流系统/4.png" alt=""><br>结论：从结论看出，截流系统对于redis集群的故障能够做到有损提供服务，做到高可用。</p>
+<h3 id="接口设计"><a href="#接口设计" class="headerlink" title="接口设计"></a>接口设计</h3><h4 id="设置-修改）降级策略"><a href="#设置-修改）降级策略" class="headerlink" title="设置(修改）降级策略"></a>设置(修改）降级策略</h4><p>curl  www.admin.com/degrade/admin/?action=set -d ‘{“deg_servername”:”xx”,”deg_location”:”yy”,”deg_percent”:”100”}’</p>
+<h4 id="删除降级策略"><a href="#删除降级策略" class="headerlink" title="删除降级策略"></a>删除降级策略</h4><p>curl www.admin.com/degrade/admin/?action=del -d ‘{“deg_servername”:”xx”,”deg_location”:”yy”}’</p>
+<h4 id="查看查看降级策略"><a href="#查看查看降级策略" class="headerlink" title="查看查看降级策略"></a>查看查看降级策略</h4><p>curl www.admin.com/degrade/admin/?action=get -d ‘{“deg_servername”:”xx”,”deg_location”:”yy”}’</p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+
+      
+        
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/03/09/redis集群及ngx-lua接入方案/" rel="next" title="redis集群及ngx_lua接入方案">
+                <i class="fa fa-chevron-left"></i> redis集群及ngx_lua接入方案
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/03/09/关于Nginx中worker进程的ID号/" rel="prev" title="关于Nginx中worker进程的ID号">
+                关于Nginx中worker进程的ID号 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+          
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            Inhaltsverzeichnis
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            Übersicht
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.gif"
+               alt="fantaotao" />
+          <p class="site-author-name" itemprop="name">fantaotao</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+          
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">12</span>
+                <span class="site-state-item-name">Artikel</span>
+              </a>
+            </div>
+          
+
+          
+
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#背景"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#界面"><span class="nav-number">2.</span> <span class="nav-text">界面</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#实现"><span class="nav-number">3.</span> <span class="nav-text">实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#服务接入"><span class="nav-number">4.</span> <span class="nav-text">服务接入</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#性能测试"><span class="nav-number">5.</span> <span class="nav-text">性能测试</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#灾难测试"><span class="nav-number">6.</span> <span class="nav-text">灾难测试</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#接口设计"><span class="nav-number">7.</span> <span class="nav-text">接口设计</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#设置-修改）降级策略"><span class="nav-number">7.1.</span> <span class="nav-text">设置(修改）降级策略</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#删除降级策略"><span class="nav-number">7.2.</span> <span class="nav-text">删除降级策略</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#查看查看降级策略"><span class="nav-number">7.3.</span> <span class="nav-text">查看查看降级策略</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">fantaotao</span>
+</div>
+
+
+<div class="powered-by">
+  Erstellt mit  <a class="theme-link" href="https://hexo.io">Hexo</a>
+</div>
+
+<div class="theme-info">
+  Theme -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+
+  
+
+</body>
+</html>
