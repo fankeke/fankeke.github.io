@@ -247,6 +247,342 @@
   
 
   <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/Nginx中Set变量的“来龙去脉/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="fantaotao">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
+                <a class="post-title-link" href="/2017/03/09/Nginx中Set变量的“来龙去脉/" itemprop="url">
+                  Nginx中Set变量的“来龙去脉
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-03-09T20:26:05+08:00">
+                2017-03-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="缘起"><a href="#缘起" class="headerlink" title="缘起"></a>缘起</h3><p>在配置文件中，经常会创建一个变量或者使用其它模块导出的内置变量。如果我们自己创建一个变量，那么需要用到set指令。由于变量使用的如此频繁，且加上各种if，rewrite的结合使用，往往使得实际运行效果会出现意想不到的结局，那么有必要对set指令进行分析。</p>
+<h3 id="测试配置"><a href="#测试配置" class="headerlink" title="测试配置"></a>测试配置</h3><p>首先来看这样的一小段配置：</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/1.png" alt=""></p>
+<p>如上面的配置所示：在两个location块中配置了set命令，且配置的变量名字都是foo。<br>server1_test1 :   $foo    hello;<br>server1_test2 :   $foo     1;<br>                  $foo     2;<br>下面分别访问这两个loca块，查看其分别会输出什么？结果如下：</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/2.png" alt=""></p>
+<p>结果：访问server1_test1 echo出 hello<br>      访问server1_test2 echo出两个2.</p>
+<p>猜想<br>1，既然set只定义了一个变量，那么按照编程语言中变量定义和赋值的逻辑，在server1_test2中的两次set，后一次的set把前一次的set覆盖了，即重写了foo的值。<br>2，既然对同一个变量会根据先后顺序重写，那么为何server1_test1中的foo没有被重写？是否是每个location中都会隔离开来？</p>
+<h3 id="set后的内存布局"><a href="#set后的内存布局" class="headerlink" title="set后的内存布局"></a>set后的内存布局</h3><p>要正确解释上面的执行逻辑，需要清楚知道在配置set后，Nginx解析配置时的内存结构体布局。为此，从简单配置开始，以下面的配置代码为例，探索其内存布局。</p>
+<h4 id="配置文件示例"><a href="#配置文件示例" class="headerlink" title="配置文件示例"></a>配置文件示例</h4><p><img src="/img/Nginx中Set变量的来龙去脉/3.png" alt=""></p>
+<p>用上面一个简单的配置文件来探索其结构体的分配。在某个location层下面用set定义了一个变量foo，为其取值为hello。<br>(tips: 在Nginx中变量的值类型只有一种，即字符串类型，故后面的hello不加引号或加双引号都是可以正确解析的，但如果有空格，需要用引号）</p>
+<h4 id="结构体分布"><a href="#结构体分布" class="headerlink" title="结构体分布"></a>结构体分布</h4><p>在Nginx中，变量的名和变量的值是分开存储的。 </p>
+<h5 id="变量名"><a href="#变量名" class="headerlink" title="变量名"></a>变量名</h5><p>变量的名通过结构体ngx_http_variable_t 来表示，且都放入全局唯一的结构cmcf中的variable_key中的字段。如下图：</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/4.png" alt=""></p>
+<p>说明：<br>1，对于变量名的表示，Ngx中用了cmcf的两个字段数组来实现，一个是包含了Nginx内部和第三方模块定义过的变量，另一个包含在执行过程中Nginx要使用的变量。对于Set指令定义的变量，即定义又使用了，所以会加入到variables数组中。（对于一些内置变量如果出现在配置中，则解析时候也被加入到variables中）<br>2，直观认识：以上面的配置文件为例，被定义过的变量有76个，而被使用的变量（包括set命令的3个）只有8个。<br>我整理了使用的8个变量如下：<br>uid_resetserver,foo,proxy_host,remote_addr,remote_userrequesthttp_referhttp_user_agent,requesthttp_referhttp_user_agent,http_referhttp_user_agent,http_user_agent.<br>定义过的变量太多，这里不列出。</p>
+<h5 id="变量值"><a href="#变量值" class="headerlink" title="变量值"></a>变量值</h5><p>变量的值的存放和set指令的位置有关，由于set指令是从属在ngx_http_rewrite_module这个模块的，因此需对这个模块定义的结构体有所了解。<br>在ngx_http_rewrite_module模块中，定义了一个loc类型的结构体，表示如下：</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/5.png" alt=""></p>
+<p>其中在codes字段会涉及到存放set变量值的相关操作。以上面的配置为例，那么解析后的值存放布局如下：</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/6.png" alt=""></p>
+<p>说明：<br>1，对于codes数组，实际上是一个字节流数组。<br>2，对于变量值的实现，采用了两个结构体val,vcode,其重要的两个子段为code字段，这是两个回调函数，会在变量解析完成后被回调。<br>3，连接变量名和变量值间的关键桥梁就是 vcode中的index字段。（关于如何从变量名找到变量值下面会有说明）<br>4 ，关于val的code回调是有“存入”的意味，vcode的code回调有“取出”的意味</p>
+<h3 id="多个同名变量的结构布局"><a href="#多个同名变量的结构布局" class="headerlink" title="多个同名变量的结构布局"></a>多个同名变量的结构布局</h3><p>以开始的那份配置文件为例，来探索分布在不同location下的多个同名变量是如何布局的。</p>
+<h4 id="配置文件"><a href="#配置文件" class="headerlink" title="配置文件"></a>配置文件</h4><p><img src="/img/Nginx中Set变量的来龙去脉/7.png" alt=""></p>
+<h4 id="结构布局"><a href="#结构布局" class="headerlink" title="结构布局"></a>结构布局</h4><p><img src="/img/Nginx中Set变量的来龙去脉/8.png" alt=""></p>
+<p>说明：<br>1，从上面可以看出,虽然出现了三个set，但由于只定义了一个变量foo，所以在全局结构cmcf中的有关变量名的结构体只会有一份。<br>2，在server1_test1结构体中，只有一次set，那么在ngx_http_rewrite_module模块中的rlcf结构体中只有一份关于变量值的结构实现。<br>而在server1_test2结构体中，有两次set，那么。。。。。。。。。。。。会有两份结构实现。</p>
+<h3 id="变量解析后的初始化"><a href="#变量解析后的初始化" class="headerlink" title="变量解析后的初始化"></a>变量解析后的初始化</h3><p>如果刚开始解析完配置文件，那么变量的内存布局就如上面所示，但Nginx会对变量做进一步的初始化工作，比如上面变量结构体中的get_handler,set_handler,data等字段都没有赋值。其关键的函数为 ngx_http_variables_init_vars</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/9.png" alt=""></p>
+<p>该函数的执行时机很值得注意：是在将http{}配置文件解析完成后来执行的。（后面的init_phases_handlers也很重要，关于11阶段的初始化）</p>
+<h4 id="ngx-http-variables-init-var流程"><a href="#ngx-http-variables-init-var流程" class="headerlink" title="ngx_http_variables_init_var流程"></a>ngx_http_variables_init_var流程</h4><p>1,”使用过”的变量中字段没有初始化，这时候会从相应的“定义过”的变量中的字段赋值而来。<br>以上面的foo为例，“使用过”变量的结构体中的get_handler将设置为ngx_http_rewrite_var.，data设置为1（下标）等等。<br>2，检查在“使用过”变量中是否存在在“定义过”变量中找不到的变量，这样就会报错：变量未定义。<br>3，为”定义过“的变量建立hash表，同时释放”定义过“变量的指针。</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/10.png" alt=""></p>
+<h4 id="经过变量初始化后的内存布局"><a href="#经过变量初始化后的内存布局" class="headerlink" title="经过变量初始化后的内存布局"></a>经过变量初始化后的内存布局</h4><p>经过ngx_http_variables_init_var的初始化，其“定义过”的变量从数组结构中转入到了hash表中，且将数组结构的指针置空了，同时完善了“使用过”的变量的各个字段。<br><img src="/img/Nginx中Set变量的来龙去脉/11.png" alt=""></p>
+<p>说明：<br>1，对于hash的组织方式，我这边不太确定具体的结构是如何的，可能在图中画的有偏差。<br>2，将“定义过”变量的结构转为hash方式来存储</p>
+<h3 id="请求与变量的关系"><a href="#请求与变量的关系" class="headerlink" title="请求与变量的关系"></a>请求与变量的关系</h3><h4 id="变量值的获取"><a href="#变量值的获取" class="headerlink" title="变量值的获取"></a>变量值的获取</h4><p>在请求刚刚被建立时，在ngx_http_init_request中初始化了r-&gt;variables变量：</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/12.png" alt=""></p>
+<p>为这个数组开辟的空间是“使用过”的变量的数量，元素类型为 ：ngx_http_variable_value_t (变量值结构体）</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/13.png" alt=""></p>
+<p>len会保存值的字符串长度，data保存值的字符串数据。<br>填充r-&gt;variables数组的时机是在rewrite模块注册在rewrite阶段的钩子中：ngx_http_rewrite_handler(ngx_http_request_t*r) .<br>该钩子做的主要工作就是回调在rlcf结构体codes字符流数组中存放的回调函数val-&gt;code、vcode→code. （注意，每次set一此，都会对应一组val，vcode结构体）</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/14.png" alt=""></p>
+<p>回调发生在while循环中，首先定位codes数组，然后取出其code函数，最后回调。<br>以最初配置为例，请求server1_test1：curl http:127.0.0.1:10330/server1_test1 .这样rlcf中的codes有一个{val，vcode},其回调分别为：ngx_http_script_value_code,ngx_http_set_val_code.<br>首先进入val→code: </p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/15.png" alt=""></p>
+<p>即把变量值取出放在临时中间变量e→sp中。（注意sp也是ngx_http_variable_value_t类型）<br>该回调是取出变量<br>然后是vcode→code:</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/16.png" alt=""></p>
+<p>即从临时变量e-&gt;sp中取出变量值,放入r-&gt;variables数组中，其下标为为vcode设置的下标，也即为该值对应的变量名在cmcf→variables数组中的下标。<br>该回调是存入变量</p>
+<p>codes数组中的两个回调，将变量值放入了相应的r→variables槽位中。</p>
+<p>注意：1，临时变量e在这其中充当了一个栈。<br>      2，其r-&gt;variable[xx].data为指针，指向的是e的字段，而e的存活期是和r一致的。（可参考e的生成）</p>
+<h4 id="变量小结"><a href="#变量小结" class="headerlink" title="变量小结"></a>变量小结</h4><p>经过rewrite阶段后，已经取得了变量值，这里可以做个小结。（这里只是针对set命令生成的变量）</p>
+<h5 id="r与变量"><a href="#r与变量" class="headerlink" title="r与变量"></a>r与变量</h5><p>从上面的解析中可以看出，每次请求到不同的location，其选择的rlcf都不同，那么其变量值也会不同</p>
+<h5 id="重名变量赋值"><a href="#重名变量赋值" class="headerlink" title="重名变量赋值"></a>重名变量赋值</h5><p>对于出现在同一个location 下面的重名变量，由于codes中的回调函数是从上上往下来执行的，且重名变量的code-&gt;index也一样，那么当然在r→variales中取得的值会按照最后的codes的数据覆盖，这样解析了</p>
+<h3 id="echo执行"><a href="#echo执行" class="headerlink" title="echo执行"></a>echo执行</h3><p>为了探索如何使用变量，这里用到echo指令。echo指令具有打印变量的功能，可以清晰看到变量是如何被获取值的（感谢春哥贡献这么好的模块：））<br>6.1 echo指令解析<br>当配置 echo $foo 指令被解析时：<br>1，通过查找cmcf→variables数组来找到该变量的index参数并保存，如果未找到，模块会自己在cmcf-&gt;variables中创建变量（相当于指令的副作用吧）并返回index，适用于先使用后定义的变量。<br>2，生成模拟回调引擎，该引擎在content阶段被echo挂入的钩子回调，主要是通过index参数从r→variables数组中获取到该location下面的值。ngx_http_script_compile<br>6.2 echo取出变量值<br>ngx_http_script_run函数根据在解析配置阶段保存的index，从r-&gt;variables中拿出变量值。</p>
+<h3 id="使用案例小结"><a href="#使用案例小结" class="headerlink" title="使用案例小结"></a>使用案例小结</h3><h4 id="典型使用"><a href="#典型使用" class="headerlink" title="典型使用"></a>典型使用</h4><p><img src="/img/Nginx中Set变量的来龙去脉/17.png" alt=""></p>
+<p>这是正常的使用，其流程为：<br>首先：<br>set指令将变量名放入cmcf-&gt;variables_keys-&gt;keys数组中，并放入cmcf-&gt;variables数组中，并给每个变量名指定一个index（为在cmcf→variables数组中的下标）<br>将变量值放入相应的rlcf结构体中的codes流式数组中的val结构体，同时紧接着val的vcode结构体中放入index下标。<br>同时，val和vcode中都设置了相应的回调引擎：ngx_http_script_value_code,ngx_http_script_set_val_code。<br>其次：<br>echo $xx 的配置，会在相应的结构体中生成模拟的codes流式数组，用来存放val和vcode。其中vcode中的index值根据$foo名字从cmcf→variables中来找到index下标。（存放在variables数组中的变量都是将要使用的变量）<br>模拟的val和vcode中的回调引擎的设置: ngx_http_script_copy_len_code,ngx_http_script_copy_val_code.<br>再次：请求r在rewrite阶段会回调rewrite模块挂入的钩子ngx_http_rewrite_handler，将会把rlcf中的codes数组中所有的变量值存入r→variables数组中<br>其下标为vcode的index值。<br>最后：echo模块在content阶段中，通过回调模拟引擎中设置的回调ngx_http_script_copy_val_code，加上其index，会从r→variables[]数组中找到相应的变量值。</p>
+<h4 id="同名变量覆盖使用"><a href="#同名变量覆盖使用" class="headerlink" title="同名变量覆盖使用"></a>同名变量覆盖使用</h4><p><img src="/img/Nginx中Set变量的来龙去脉/18.png" alt=""></p>
+<p>这种配置，会使得两个echo都输出2，其解析指令的流程和第一中情况相似，其不同点如下：<br>1，指令配置顺序不是执行顺序。<br>2，第一个set指令将foo变量名放入cmcf-&gt;variables中（先放入cmcf-&gt;variables_keys-&gt;key中），下标为1，且会在rlcf的codes流失数组中设置index为1。第一个echo创建的模拟引擎中将foo的下标也设置为1（从cmcf→variables中查找得到的）。<br>第二个set指令在执行时，发现cmcf-&gt;variables_keys-&gt;keys数组和cmcf-&gt;variables中已经有了foo，那么会直接返回下标1，然后在rlcf的codes数组中设置引擎的index也为1，第二个echo创建模拟引擎是从cmcf→variables中查找得到其下标，设置为1.<br>3，在填充r-&gt;variables时，由于rlcf中的两个index都为1，那么会后面的指令的值会覆盖前面的，即r→vairlabes[1]=“第二个codes数组中的值“。<br>4，在content阶段，执行echo的钩子，通过运行模拟引擎，得到变量的index均为1，那么从r-&gt;variables数组中得到的变量值都为r→variables[1]，即第二次set时候的变量值。</p>
+<h4 id="变量先使用后定义的情况"><a href="#变量先使用后定义的情况" class="headerlink" title="变量先使用后定义的情况"></a>变量先使用后定义的情况</h4><p><img src="/img/Nginx中Set变量的来龙去脉/19.png" alt=""></p>
+<p>在这种情况下，先配置foo，然后set该变量。这样也是合法的，可以输出其变量值。该流程的逻辑如下：<br>1，解析echo的时候，由于在cmcf-&gt;variables数组中查找失败，那么将会生成在cmcf-&gt;variables数组中生成一个元素，并且置下标为1（注意这里没有在cmcf→variables_keys→keys数组中生成元素，而set是两个地方都生成了的）。并且置模拟引擎中的index为1。<br>2，执行set指令，首先会在cmcf→variables_keys→keys数组中查找，发现没有（echo指令并没有在这里面存放），生成之，然后在cmcf→variables里面已经有了foo（echo存放的），这时候就直接返回其index为1。 填充rlcf-&gt;codes数组。<br>3， 在rewrite阶段填充r→varialbes .<br>4，在content阶段echo模块根据模拟引擎的index从r→varialbes中取出数据。</p>
+<p>所以，这种“后定义先使用”的方式也是合法的。</p>
+<h4 id="使用未定义变量"><a href="#使用未定义变量" class="headerlink" title="使用未定义变量"></a>使用未定义变量</h4><p><img src="/img/Nginx中Set变量的来龙去脉/20.png" alt=""></p>
+<p>这种情况下，启动会报错，解析过程都通过不了。<br>1，解析echo时，由于在cmcf-&gt;variables中找不到，那么将会生成在cmcf→variables数组中生成一个元素，并且置下标为1（注意这里没有在cmcf→variables_keys→keys数组中生成元素，而set是两个地方都生成了的）。并且置模拟引擎中的index为1。<br>2，在最终变量合法性检查的函数ngx_http_init_vars中，会检查cmcf→variables中出现的变量是否在cmcf-&gt;variables_keys→keys中出现过，若没有，则会报错。</p>
+<h4 id="跨location使用变量"><a href="#跨location使用变量" class="headerlink" title="跨location使用变量"></a>跨location使用变量</h4><p><img src="/img/Nginx中Set变量的来龙去脉/21.png" alt=""></p>
+<p>大家可以首先猜一下：访问第二个location块会有什么结果：hello？还是报错？<br>结果：</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/22.png" alt=""></p>
+<p>能够顺利通过检查，结果为空。下面是解释。</p>
+<p>1，由于在第一个location中由echo在cmcf-&gt;variables中生成了foo变量名元素，set在cmcf-&gt;varables_keys→keys中生成了foo变量元素，这样就再次使用foo时，会通过检查。<br>2，test2块中，echo指令会在模拟引擎中设置index为1（即从cmcf→variables中找到了foo变量名）<br>3，在rewrite阶段，由于其loc下的rlcf结构没有codes，故其r→variables[]数组没有数据，这样在content阶段，echo模块按照index为1去拿数据，就为空了。</p>
+<h4 id="set小结"><a href="#set小结" class="headerlink" title="set小结"></a>set小结</h4><p>下面总结set指令和echo指令（echo指令这里代表使用变量的那一类指令）的流程图：</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/23.png" alt=""></p>
+<p>在set指令和普通的使用变量的指令（以echo为例）间最大的区别就是：set指令会同时在cmcf-&gt;variables_keys→keys数组和cmcf -&gt;variables中存放变量名，而echo指令只会在cmcf-&gt;variabesl数组中存入变量名。</p>
+<h3 id="关于set变量的继承性"><a href="#关于set变量的继承性" class="headerlink" title="关于set变量的继承性"></a>关于set变量的继承性</h3><h4 id="复现"><a href="#复现" class="headerlink" title="复现"></a>复现</h4><p>在set指令中，与之相关的就是rlcf→codes这个流式数组。rewrite模块中，我们并没有发现rewrite模块会有继承的特性，即server块中的codes数组不会继承给location块中的codes数组，其merge函数如下：</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/24.png" alt=""></p>
+<p>可以看到，并没有关于codes数组的继承。这时我就在想，那么set变量如果配置在server层，那么location层应该是继承不到的，做了个小实验，其配置如下：</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/25.png" alt=""></p>
+<p>在server层配置了变量foo，然后在locaiton层中访问它，本以为会输出空：</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/26.png" alt=""></p>
+<p>但事与愿违，它竟然表现出了继承的特点。这使得我很纳闷，不得不开始追踪源码。<br>最后发现了问题：</p>
+<h4 id="追踪"><a href="#追踪" class="headerlink" title="追踪"></a>追踪</h4><p>1 rewrite模块的特殊地方在：它在server_rewrite阶段和rewrite阶段都注册了自己的钩子且是同一个钩子：ngx_http_rewrite_handler<br>2 而server_rewrite阶段的执行时机在find_config阶段之前，也就是说,在server_rewrite阶段，请求并没有找到自己正确的location块，而是复用的server块中的结构。</p>
+<p>这样就解释了：<br>1 r→varaibles[]的赋值发生在ngx_http_rewrite_handler的while循环调用codes数组的钩子中。<br>2 在server_rewrite阶段执行的ngx_http_rewrite_handler将server块层的变量都赋值到了r→varaibles[]中，这样就到达了“貌似继承“的效果。<br>3 location层中codes数组仍然为空。（下图为其内存布局）</p>
+<p><img src="/img/Nginx中Set变量的来龙去脉/27.png" alt=""></p>
+<p>在server_rewrite阶段，使用的是server层的rlcf，自然r-&gt;varialbes[]就被赋值了。</p>
+<h4 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h4><p>1 set变量并没有继承性，但通过在server_rewrite阶段和 rewrite阶段执行的同一个钩子，实现了继承的效果<br>2 如果在server层和location层都set了同一个变量，那么r-&gt;variables[]的某个元素会被重写，即覆盖掉。（这不是继承merge带来的效果，而是一个函数在两个不同时间点执行带来的效果）</p>
+<h3 id="TODO"><a href="#TODO" class="headerlink" title="TODO"></a>TODO</h3><p>1，rewrite指令对变量的使用<br>2，rewrite阶段的流转和r各个字段的变化</p>
+
+          
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/nginx中锁的实现/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="fantaotao">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
+                <a class="post-title-link" href="/2017/03/09/nginx中锁的实现/" itemprop="url">
+                  nginx中锁的实现
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-03-09T20:17:12+08:00">
+                2017-03-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <p>草稿版，后续整理</p>
+<p>1 和nginx中自建内存池一样，共享内存也用slab来管理，减少系统调用次数<br>2 无阻塞锁和自旋锁的实现都建立在共享内存的基础上 </p>
+<p>在锁结构ngx_shmtx_t中的lock指向了某处共享内存的地址，对这块地址的操作和赋值就代表对锁的争抢。<br>这里的赋值操作都是gcc中的原子变量操作 。 </p>
+<p>无阻塞锁和自旋锁都是ngx_shmtx_t，只不过对于获取锁的方式不一样。（获取的意思是将该共享内存的某个地址的数据置位或者填入自己的workerpid，标明我成功抢锁）</p>
+<p>无阻塞方式获取：获取不到，立即返回<br>自旋锁：获取不到，等待一会再去获取，但是这段时间不释放CPU，忙等，但让cpu进入省电模式（pause.(微笑). ）（自旋锁的设计就是为那些占据时间很短的锁而出现的）</p>
+<p><img src="/img/nginx中锁的实现/1.png" alt=""><br>上面就是无阻塞锁，下面是自旋锁，红色方框中是原子操作。</p>
+<p>1  ngx_atomic_t 这个类型是在前面加了volatile的，防止被优化，对其不能进行原子操作了。<br>另外，如果某个变量被定义为ngx_atomic_t，那么一半定义为指针，然后指向共享内存中，进行原子操作。<br>例子：<br> (void) ngx_atomic_fetch_add(ngx_stat_accepted, 1);<br> 这个就是对共享内存里的监控状态字段accetp进行操作</p>
+<p><img src="/img/nginx中锁的实现/2.png" alt=""> </p>
+<p>用gcc的潜入汇编进行原子操作<br>状态码的定义：</p>
+<p><img src="/img/nginx中锁的实现/3.png" alt=""> </p>
+<p>真实的赋值在共享内存中：</p>
+<p><img src="/img/nginx中锁的实现/4.png" alt=""> </p>
+<p>即都指向了共享内存中。</p>
+<p>－－－－nginx中时间缓存的解析－－－－－</p>
+<p>2  困惑在ngx_update_time中:</p>
+<p><img src="/img/nginx中锁的实现/5.png" alt=""> </p>
+<p>问题在于 ngx_time_lock我看了下，不是个在共享内存中的变量。。。。</p>
+<p>哦，懂了，是每个worker都独自为战地管理自己的时间，每个worker都有自己的时间缓存，并不是所有worker共享一个时间缓存。（开始看了老半天，后来才发现时各个进程各自管理自己的时间缓存）</p>
+<p><img src="/img/nginx中锁的实现/6.png" alt=""> </p>
+<p>而代码里面把这个这么写，是为了后续的多线程池而考虑的。在没有开启多线程池的模式下，可以忽略。</p>
+<p>另外原子变量的应用：只是为了确保在使用原子操作时候的连续性，对这个原子变量所处的位置（进程内还是共存中）没有限制的。</p>
+<p>4 为何要进行时间缓存：<br>这就是时间缓存的原因：很多地方需要时间，但是不一定要十分精确，这样缓存时间<br>做到“及时”更新，减少系统调用。<br>比如要获取在1s中内要连续获取10000次时间，那么我可以每间隔500ms进行一次缓存，虽然时间精度不准，但是够用，而且只进行两次系统调用</p>
+<p>下面截图：<br><img src="/img/nginx中锁的实现/7.png" alt=""> </p>
+<p>另外时间slot也是一个设计很精妙的地方</p>
+<p>5 和时间相关的：epoll_wait醒来有几种情况：1 socket事件发生，2 超时，3 被信号中断<br>其中第三种情况容易忽视：在nginx配置文件中，如果设置了ngx_timer_resolution,则会设置一个定时器，定时产生SIGARGM信号，此时epoll_wait中超时timer的参数为-1,表示永远不超时，此时由SIGARGM信号来定时<br>中断唤醒epoll（当没有socket时间发生时）。当然，如果没有配置ngx_timer_resolution，则依然会用红黑树定时器中的最小超时时间来作为timer</p>
+
+          
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/基于ngx-lua的分流系统设计/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -340,6 +676,137 @@
 <p>分流数据的更新逻辑如下：<br>方案一：<br><img src="/img/基于ngx_lua的分流系统设计/4.png" alt=""></p>
 <p>当管理机把更新的表推送到redis后，每个nginx会从redis里面定时拉取该表，缓存入nginx的共享内存。<br>该方案优势：<br>1 每个分流的Nginx都可以自己拉取，只要有定时拉取的逻辑<br>存在的问题：<br>1 单个worker拉取，需要patch tengine源码，担心会造成问题<br>2 每个nginx定时轮询，且定时时间短</p>
 <p>方案二：<br><img src="/img/基于ngx_lua的分流系统设计/5.png" alt=""><br>通过http接口，在每次数据真正变更时候走http来更新每个分流nginx的内存，并将最新的一份数据存储在redis里面容灾。<br>优势：<br>1 不用定时器，即不需patch源码<br>2 在数据真正变动时进行更新，没有无谓轮询。</p>
+
+          
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/https基础知识学习/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="fantaotao">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
+                <a class="post-title-link" href="/2017/03/09/https基础知识学习/" itemprop="url">
+                  https基础知识学习
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-03-09T19:58:13+08:00">
+                2017-03-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="SSL-TSL作用"><a href="#SSL-TSL作用" class="headerlink" title="SSL/TSL作用"></a>SSL/TSL作用</h3><p>使用传统的HTTP通信，内容都是明文传输，有下面的风险：<br>(1） 窃听：第三方可以获得通信内容<br>(2） 篡改：第三方可以修改通信内容<br>(3） 冒充：第三方可以冒充他人身份参与通信（会话劫持）<br>总结起来就是，由于是明文传输，第三方可以参与到会话中来干扰会话。<br>SSL/TSL协议可以解决上面的风险：<br>(1）所有信息都是加密传播（窃听）<br>(2） 具有校验机制，一旦被篡改，收到信息的一方会发现（篡改）<br>(3） 配备身份证书，防治被冒充。</p>
+<h3 id="对称加密和非对称加密"><a href="#对称加密和非对称加密" class="headerlink" title="对称加密和非对称加密"></a>对称加密和非对称加密</h3><p>1 对称加密，又叫私钥加密、共享密钥加密，在加密解密时使用相同的密钥，或是两个key简单地相互推算的密钥。这个（组）密钥成为通信成员间的秘密。<br>明文&lt;－－－&gt;privatre key(密钥）&lt;－－－－&gt;密文<br>缺点：要求通信各方取得相同的密钥（私钥）（私钥＝＝密钥＝＝private key，和下面的公钥对应，对称加密中只有private key）<br>即如果1000个人进行加密通信使用对称加密协议，那么这个private key就需要在这1000人中共享，如果某个人的key被盗，那么整个加密信息都被破解。<br>常见对称加密算法：DES，AES，RC5<br>(个人观点：其实没有什么公钥私钥秘钥，都是一个key，只是这个key是否key让第三方知道，比如在对称加密中，这个key就不能让第三方法知道，那么就称之为privdata key，私钥或者密钥，而在非对称加密中（下面），某些key可以让第三方知道，那么就称该key为pulic key，即公钥）。</p>
+<p>2 非对称加密,就是为了解决上面的问题：即一个人的key被盗，加密体系就被攻破了。非对称加密保证，即使一个人的密钥被盗，你发送给其他人的信息依然能保证不被破解。<br>首先，停止分享密钥，因为上面的bug就来自于共享一个key。<br>然后，每个人都生成一份钥匙对“public_key—private_kye“. 公钥可以任意让人知道，私钥自己保管。<br>比如这样：A生成自己的钥匙对public_key_a,private_key_a<br>      B生成自己的钥匙对public_key_b,private_key_b<br>那么AB之间交换public_key（key让别人知道），如果A向B发送信息，那么就用B的pulibc_key_b进行加密，发送给B，这个信息只有拥有private_key_b的B才能进行解密，其他人不能。同理B向A发送信息，也是按照这个套路。 这样既是中间人（第三方）获取了某段密文，由于没有该密文对应的相应密钥，也无能为力。</p>
+<h3 id="TSL基本运行过程"><a href="#TSL基本运行过程" class="headerlink" title="TSL基本运行过程"></a>TSL基本运行过程</h3><p>SSL/TSL基本思路是采用非对称加密，即client向server索要公钥，然后用其加密，server端收到加密信息，用自己的私钥解密。（非对称加密，如RSA）<br>但是这里几个问题：</p>
+<p>(1）client向server索要公钥时，如何保证公钥不被篡改？<br> 比如上面谈到的AB之间通信首先获取对方公钥，如果C冒充B，把C的公钥发送给A，如果A不知道，依然用这个公钥进行加密，那么C就可以破解。<br> 解决：将公钥放入证书，只要证书是可信的，公钥就是可信的。至于证书机制如何保证公钥的不被篡改，可以深入研究。（关键词：数字证书，数字签名，CA，公钥基础设置PKI）</p>
+<p>(2) 非对称加密的效率很低，需要大量的计算，如何减少通信的耗时？<br>解决：每一次对话（session），client和server都商量生成一个会话密钥，(session key),用它来加密信息，由于会话密钥是对称加密，速度有保障。而回话密钥的生成过程用公钥来加密，防治第三方知道会话密钥）。</p>
+<p>(生成回话密钥的过程就是握手的过程，在这期间有三个随机数被传输，其中第1个随机数用是client向server端传输（明文，此时还没得到server的公钥），第二个是server向client传输（明文，同时携带自己的公钥），第三个是client向server传输（用公钥加密，密文），这样的三个随机数用来生成会话密钥）</p>
+<p>keyless：</p>
+<p>其实从前面看到，整个过程中最重要的是通信双方协商好会话密钥，且server端的公钥和私钥都是为生成这个会话密钥而服务的，在后续阶段会话阶段并不会用到。那么这样可以用一种托管的玩法：<br>比如银行想把自己的业务托管给CDN厂商，提升自己网站的性能，但并不希望将私钥告知CDN。他可以这样玩：<br>客户在和CDN协商会话密钥时，CDN厂商将银行的公钥传递给客户，然后CDN将加密后的第三个随机数传递给银行（因为只有银行才能解开），银行揭开第三个随机数后传递给CDN，这样CDN就可以得出会话密钥了。<br>当然CDN和银行之间的通信是加密通道。</p>
+<p>这就是cloudflare公司宣布的keyless服务：即使</p>
+<h3 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h3><p><a href="https://segmentfault.com/a/1190000004461428（对称加密和非对称加密）" target="_blank" rel="external">https://segmentfault.com/a/1190000004461428（对称加密和非对称加密）</a></p>
+<p><a href="http://www.ruanyifeng.com/blog/2014/09/illustration-ssl.html（session-key" target="_blank" rel="external">http://www.ruanyifeng.com/blog/2014/09/illustration-ssl.html（session-key</a> resumption）</p>
+<p><a href="http://www.ruanyifeng.com/blog/2014/02/ssl_tls.html（非对称加密）" target="_blank" rel="external">http://www.ruanyifeng.com/blog/2014/02/ssl_tls.html（非对称加密）</a></p>
+<p><a href="https://blog.cloudflare.com/announcing-keyless-ssl-all-the-benefits-of-cloudflare-without-having-to-turn-over-your-private-ssl-keys/（keyless）" target="_blank" rel="external">https://blog.cloudflare.com/announcing-keyless-ssl-all-the-benefits-of-cloudflare-without-having-to-turn-over-your-private-ssl-keys/（keyless）</a></p>
 
           
         
@@ -519,9 +986,788 @@
 
 
     
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/Ngx-lua一键截流系统/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="fantaotao">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
+                <a class="post-title-link" href="/2017/03/09/Ngx-lua一键截流系统/" itemprop="url">
+                  Ngx_lua一键截流系统
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-03-09T19:23:45+08:00">
+                2017-03-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>由于某些服务的流量过大，为保护其后端服务，需要在接入层Nginx对某些服务流量进行截流。本系统可以提供按照百分比对指定域名的制定URI进行截流的功能</p>
+<h3 id="界面"><a href="#界面" class="headerlink" title="界面"></a>界面</h3><p>管理员可以轻松在管理界面进行配置，接口界面大致如下</p>
+<p><img src="/img/Ngx_lua一键截流系统/1.png" alt=""></p>
+<h3 id="实现"><a href="#实现" class="headerlink" title="实现"></a>实现</h3><p>采用nginx＋Lua的实现整个系统的截流功能，大致架构图如下：</p>
+<p><img src="/img/Ngx_lua一键截流系统/2.png" alt=""></p>
+<p>管理员在界面上写入数据，管理端服务会将数据放入redis集群，各个nginx节点，会定时从redis集群拉取截流数据。</p>
+<h3 id="服务接入"><a href="#服务接入" class="headerlink" title="服务接入"></a>服务接入</h3><p>为了对达到快速方便的截流目的，默认是每个服务都接入截流系统，而不需要进行nginx配置文件的修改。</p>
+<p>access_by_lua_file    “/etc/nginx/hlb-lua/access_lua/online_access.lua”;                （1）<br>server {</p>
+<pre><code>server_name        server1;
+</code></pre><p>}<br>server {<br>    server_name        server2;<br>}<br>server {</p>
+<pre><code>server_name        server3;
+</code></pre><p>}</p>
+<p>server {<br>    server_name        server4;<br>}</p>
+<p>这样能够到达全自动化的截流：<br>1 不需要在每个服务配置中做添加任何字段，也就意味着完全不用reload Nginx<br>2 针对某个服务下的某个路径进行截流，只需在管理端界面上输入数据即可完成</p>
+<h3 id="性能测试"><a href="#性能测试" class="headerlink" title="性能测试"></a>性能测试</h3><p>由于默认所有流量经过截流检测系统，需要比较造成的性能影响。计算截流逻辑的耗时。每组数据共采集5000条请求的日志，用ab实现压测，计算其在截流逻辑处的平均耗时。共测试10组数据</p>
+<p><img src="/img/Ngx_lua一键截流系统/3.png" alt=""></p>
+<p>由压测结果来看，截流逻辑耗时稳定在20us以下。</p>
+<h3 id="灾难测试"><a href="#灾难测试" class="headerlink" title="灾难测试"></a>灾难测试</h3><p>截流系统依赖redis集群，考虑到集群的挂掉后对整改系统的影响，需要进行灾难测试。灾难测试分为两部分，分别是对管理端的影响和对Nginx节点的影响。<br>说明：由于所有截流数据缓存在集群的一个分片上，故灾难测试在该分片上进行。下面说的分片特指存放截流数据的分片</p>
+<p><img src="/img/Ngx_lua一键截流系统/4.png" alt=""><br>结论：从结论看出，截流系统对于redis集群的故障能够做到有损提供服务，做到高可用。</p>
+<h3 id="接口设计"><a href="#接口设计" class="headerlink" title="接口设计"></a>接口设计</h3><h4 id="设置-修改）降级策略"><a href="#设置-修改）降级策略" class="headerlink" title="设置(修改）降级策略"></a>设置(修改）降级策略</h4><p>curl  www.admin.com/degrade/admin/?action=set -d ‘{“deg_servername”:”xx”,”deg_location”:”yy”,”deg_percent”:”100”}’</p>
+<h4 id="删除降级策略"><a href="#删除降级策略" class="headerlink" title="删除降级策略"></a>删除降级策略</h4><p>curl www.admin.com/degrade/admin/?action=del -d ‘{“deg_servername”:”xx”,”deg_location”:”yy”}’</p>
+<h4 id="查看查看降级策略"><a href="#查看查看降级策略" class="headerlink" title="查看查看降级策略"></a>查看查看降级策略</h4><p>curl www.admin.com/degrade/admin/?action=get -d ‘{“deg_servername”:”xx”,”deg_location”:”yy”}’</p>
+
+          
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/redis集群及ngx-lua接入方案/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="fantaotao">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
+                <a class="post-title-link" href="/2017/03/09/redis集群及ngx-lua接入方案/" itemprop="url">
+                  redis集群及ngx_lua接入方案
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-03-09T18:11:01+08:00">
+                2017-03-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="背景介绍"><a href="#背景介绍" class="headerlink" title="背景介绍"></a>背景介绍</h3><p>精细化分流和降级的项目依赖redis存放分流和降级规则，为了保证redis的高可用，需避免其单点故障和数据丢失。整个系统的架构图如下：</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/1.png" alt=""> </p>
+<p>在管理端，通过多个管理实例来避免管理端的单点问题，将策略规则写入redis。在业务端，多个Nginx代理从redis中读出策略规则并缓存在本地的lua缓存中，结合用户请求，最终将其分流到不同的上游集群。</p>
+<h3 id="尝试解决"><a href="#尝试解决" class="headerlink" title="尝试解决"></a>尝试解决</h3><p>将管理机和业务机如何正确接入redis集群是该项目考虑的问题。<br>1 当某个redis挂掉后，其上面的数据需要有备份，不能丢失。<br>2 整个redis集群须提供对外统一的访问接口。<br>为此考虑了以下几种解决方案：<br>1 主从模式<br>2 代理模式<br>3 集群模式</p>
+<h4 id="主从模式"><a href="#主从模式" class="headerlink" title="主从模式"></a>主从模式</h4><p>若用redis主从模式，其接入架构图可以为这样：</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/2.png" alt=""> </p>
+<p>1 在所有redis中有一个主库，其余均为从库，所有从库始终保持和主库数据同步。<br>2 所有的管理机均将策略写入主库，各个业务机将从各自的从库中读人。可以将从库于业务机部署在同一主机提高读取速度。<br>该方案的特点：<br>1 实现简单。redis主从关系设置方便，且有现成的接入单个redis的lua接口。<br>2 容灾性差。所有管理机都依赖于唯一的主库，造成单点问题（虽说系统依然可以正常处理业务），且业务机访问单个redis从库，也造成单点问题。<br>3 。。。</p>
+<h4 id="代理模式"><a href="#代理模式" class="headerlink" title="代理模式"></a>代理模式</h4><p>为了让多个redis对外提供统一的访问接口，尝试采用redis的代理服务。根据调研，目前业界有两种成熟的解决方案：twemproxy和codis。其架构图如下：</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/3.png" alt=""> </p>
+<p>通过代理，所有接入redis的请求都由代理来处理。<br>该方案的特点：<br>1 统一接口。代理对外提供了所有访问的统一接口，且可以兼容访问单个redis实例的lua接口<br>2 容灾较差。代理将数据写入或从redis集群中读出是采用分片的方式，从中选择某个redis来进行写或读。<br>如果某个redis挂了，其上面的数据依然会丢失。<br>针对2进行的改进是：对每个redis做主备，其架构如下</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/4.png" alt=""> </p>
+<p>这样虽然保证了数据不丢失，但主库挂掉时，从库需要手动升级为主库，运维麻烦。</p>
+<h4 id="集群模式"><a href="#集群模式" class="headerlink" title="集群模式"></a>集群模式</h4><p>集群模式是redis在3.0后的分布式解决方案，可以很好地满足上面的两个要求：1 对外提供统一接口 2 数据一致性且不丢失。其接入架构图如下：</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/5.png" alt=""> </p>
+<p>集群中的所有redis都互相传递消息，且按照分片的方式进行存储数据。在本节介绍redis集群的部署方式后，在下一节介绍redis集群原理。</p>
+<h4 id="集群部署"><a href="#集群部署" class="headerlink" title="集群部署"></a>集群部署</h4><p>1 运行多个处于集群模式的redis实例<br>这里以6个为例。要使redis处于集群模式，需在配置文件里面添加：</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/6.png" alt=""> </p>
+<p>cluster-enabled表示是否以集群模式运行。其它字段意义可参考官网：<a href="http://redis.io/topics/cluster-tutorial" target="_blank" rel="external">http://redis.io/topics/cluster-tutorial</a></p>
+<p>然后运行6个实例</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/7.png" alt=""> </p>
+<p>其客户端监听端口以此为6380,6381,6382,6383,6384,6385。</p>
+<p>2 安装依赖</p>
+<p>上面的6个实例虽然处于集群模式，但是各自为战，并没有构成真正意义上的集群，为此需要将其构成集群。<br>在redis包中有将redis实例构成集群的管理包，但运行其管理包需要安装依赖环境，包括ruby，gem等</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/8.png" alt=""><br><img src="/img/redis集群及ngx-lua接入方案/9.png" alt=""> </p>
+<p>3 构成集群</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/10.png" alt=""> </p>
+<p>其中redis-trib.rb是构成集群的命令，create表示创建集群，–replicas 1表示集群中的每个主节点都将附带一个从节点。</p>
+<p>4 安装完成</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/11.png" alt=""> </p>
+<p>在集群中的6个节点中有3个主节点是负责真正写入和读出数据的，三个从节点将为其主节点备份，并在必要自动时候升级为主节点（没错，是自动升级，下一节会介绍其原理）</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/12.png" alt=""> </p>
+<p>PS：<br>1 红色的为主节点，该集群也就表示由这三个主节点构成，其从节点只是为其备份数据，并不参与集群的数据的读写。<br>2 每个节点（包括从节点）都会感知集群中的每个节点的状态，且每个主节点都可以设置多个从节点。<br>3 主节点间的数据不冗余（即每个主节点间的数据都不是备份关系），而是经过分片处理数据。每个节点处理一部分“槽位”，redis集群方案共设置了16384个槽位。</p>
+<h3 id="redis集群"><a href="#redis集群" class="headerlink" title="redis集群"></a>redis集群</h3><h4 id="节点"><a href="#节点" class="headerlink" title="节点"></a>节点</h4><p>开始时，集群中的每个节点都是单个的集群，它们之间通过“握手”来构建整个系统集群，以上面的三个主节点组成的系统为例，构建集群的过程如下：</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/13.png" alt=""> </p>
+<p>首先6380节点和6381节点相会握手成功后，其会构件为一个集群，然后6381和6382握手成功后，所以的节点都加入了同一个集群。<br>在集群中的每个节点和在普通模式下运行的节点所代表的数据结构不同：clusterNode.</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/14.png" alt=""> </p>
+<p>每个节点中都有感知集群中其它节点的信息。</p>
+<h4 id="槽指派"><a href="#槽指派" class="headerlink" title="槽指派"></a>槽指派</h4><p>Redis集群是通过分片方式来保存数据的：整个集群的实现一共分为16384个槽（slot），这些槽在空间上组成环状。集群中的每个KV对都属于这16384个槽中的一个，且每个集群中的主节点可以处理0个或者多个槽，每个槽只属于一个主节点。<br>当16384个槽都被处理时，我们称集群处于上线状态（OK），可以通过每个主节点的clusterstatus结构体的state来标示。否则，任意一个槽没有被集群节点覆盖到，那么集群将处于线下状态（Fail）。<br>处于上线状态的集群中的每个主节点都感知每一个槽分别被哪个主节点处理的：</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/15.png" alt=""> </p>
+<p>如上所示：槽0－5000被节点6380处理，5001-10000被节点6381处理，10000-16383被节点6382处理。<br>这样每个节点都能迅速掌握哪个槽被哪个节点处理。</p>
+<h4 id="MOVED错误"><a href="#MOVED错误" class="headerlink" title="MOVED错误"></a>MOVED错误</h4><p>当集群接受到redis命令时，首先计算该键值对应的槽位，然后判断该槽位是否被当前节点所处理，所是，则直接处理，否则将返回MOVED错误给客户端，客户端会通过MOVED错误的信息转向正确的主节点进行处理。其答大体步骤如下：</p>
+<p><img src="/img/redis集群及ngx-lua接入方案/16.png" alt=""> </p>
+<p>PS<br>1 键值与槽位的关系：<br>通过键值来计算槽位：CRC16(key)&amp;16383 。即先计算键值的CRC16校验和，然后得出一个介于0～16383间的整数做为key的槽位。<br>2 MOVED错误只有支持集群模式的客户段才能够正确处理（继续访问正确的主节点），否则将打印错误。</p>
+<h4 id="复制故障转移"><a href="#复制故障转移" class="headerlink" title="复制故障转移"></a>复制故障转移</h4><p>如果集群中只包含主节点，那就大大降低了它的高可靠性，一般集群中的主节点都会有从节点。从节点主要用于在相应的主节点发生故障后代替成为主节点，实现故障转移，达到高可靠的特点。而这个过程在集群中是全部自动完成的。<br>1 集群中的每个主节点都感知各个主节点的从节点。<br>2 若集群中超半数的主节点认为某个主节点故障，则该主节点被下线。<br>3 某个主节点被下线的消息会被广播到所有节点（包括从节点）<br>4 当从节点（们）发现自己的主已经被判定为下线，那么这些从节点会向各个主节点发送选举请求，请求各个主节点支持自己成为主节点。<br>4 只有每个主节点有投票选举权，且只有一票。<br>5 若某个从节点已经得到过半主节点的投票，那么会将自己升级为主节点，同时接管原来主节点所处理的槽位，并向集群广播自己被选举成功的消息。</p>
+<h3 id="接入细节"><a href="#接入细节" class="headerlink" title="接入细节"></a>接入细节</h3><p>想让上面的Redis集群接入到分流和降级系统中，需要有专门的Lua接口来接入redis集群。根据支持集群模式的C客户端和支持普通模式lua接口，可以构造支持集群模式的lua接口。</p>
+<p>推荐：<a href="https://github.com/cuiweixie/lua-resty-redis-cluster" target="_blank" rel="external">https://github.com/cuiweixie/lua-resty-redis-cluster</a><br>PS:这个客户端有少许bug:<br>1 需要把local关键字加在redis实例前面，参考其PR<br>2 在高流量情况下，由于超时重试机制，导致一个请求创建了最多18个redis实例和超时timer，把LUA虚拟栈跑爆了，这个需要改造下</p>
+
+          
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/Nginx的网络模型-演变/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="fantaotao">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
+                <a class="post-title-link" href="/2017/03/09/Nginx的网络模型-演变/" itemprop="url">
+                  Nginx的网络模型 演变 
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-03-09T17:53:20+08:00">
+                2017-03-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h3><p>Nginx的高性能得益于其优秀的网络架构模型。为了充分发挥多核CPU的优势，让每个进程都“亲缘”一个CPU，减少上下文切换带来的损耗，同时也需要解决多个进程监听同一个端口带来的各种问题，本文将简要描述下Nginx的网络架构的演变过程。</p>
+<h3 id="网络模型"><a href="#网络模型" class="headerlink" title="网络模型"></a>网络模型</h3><h4 id="模型一"><a href="#模型一" class="headerlink" title="模型一"></a>模型一</h4><p>Nginx是单主(master)多从(worker)模式的进程架构，Master进程在解析配置文件的时候，对于每个监听的端口，将创建一个监听socket套接字，为了描述，这里假设在配置文件中开启了80和443两个端口。其网络模型如下：</p>
+<p><img src="/img/Nginx的网络模型-演变/1.png" alt=""></p>
+<p>在解析完配置文件后，master进程开始创建子进程，这些子进程会进程master的资源，当然包括套接字等，如果开启4个worker，则其网络模型如下：</p>
+<p><img src="/img/Nginx的网络模型-演变/2.png" alt=""></p>
+<p>这时候，如果有请求来临，内核会唤醒所有的进程，这就是惊群现象。（先不谈Linux内核是否解决了惊群现象，Nginx作为一个跨平台的服务，必须从自身解决这个问题）<br>传统的网络服务（如apache等）会采用每个请求分派一个线程来处理，而Nginx采用的IO多路复用机制（有时候也叫做事件驱动），如在Linux平台的epoll，BSD平台的kqueue等，配合非阻塞的soket API，充分利用了CPU，提升了网络服务质量。下面会以Linux平台下的epoll为例，说明Nginx是如何解决惊群问题的。</p>
+<p>1 各个worker进程会创建自己的epoll句柄（不包括master）<br>2 接着会判读，管理员是否开启了惊群锁且worker进程的数量大于1。<br>   a,惊群锁默认是关闭的，如果管理员显示开启了accept_mutux off,则会禁用，Nginx就不会解决惊群问题。<br>   b,如果worker的进程数量小于2，那么不存在惊群问题，Nginx也会不解决惊群问题。</p>
+<p>3 如果惊群生效，则每个worker首先不会去把监听套接字描述符加入自己的epoll系统，而是先去抢一把自旋锁，即对所有监听套接字的“控制权”。</p>
+<p>4 抢到锁的worker进程，会将所有的监听套接字都加入自己的epoll中，而没有抢到worker会首先删除自己epoll中监听的监听套接字（如果有的话）。这样当有新请求来到时，只会有一个worker被唤醒，从而解决了惊群的问题。</p>
+<p>其流程图大约如下：</p>
+<p><img src="/img/Nginx的网络模型-演变/3.png" alt=""></p>
+<p>小结：<br>1，在请求量不是特别大的情况下，Nginx这种解决惊群现象的手段提升了网络服务质量，避免多个进程无谓的被“唤醒”去accept请求失败而导致的损耗。<br>2，然后现在在很多情况下证明：当并发请求量过大时，这种依靠抢锁机制解决惊群的手段，会导致处理请求的效率下降，所以现在较多的建议是关闭accept_mutux锁，让Nginx不解决惊群。 </p>
+<h4 id="模型二"><a href="#模型二" class="headerlink" title="模型二"></a>模型二</h4><p>在第一种模型下，通过抢锁来保障每次新请求到来时都只会有一个worker去执行accept，避免其它worker的无谓消耗。这种情况在高并发场景下受到了质疑，事实上，在高并发情况下，关闭惊群锁而不让Nginx处理“惊群”反而会提升处理效率。下面举一个例子说明：</p>
+<p>试想，有一群小鸡，你撒谷粒给这群鸡吃。<br>a，一粒粒撒的时候，如果不加处理，每个鸡都会跳起来，但最终只有一只鸡能够吃到这粒米。<br>所以在一粒粒撒的时候，需要有锁，不能让每个鸡都跳起来，这样浪费它们的精力，必须要让它们遵守秩序，一个个来（加锁）</p>
+<p>b，然而，如果你撒了一大把谷粒，这时候还让它们一个个来，这样是很不合理的，所以，在撒大把谷粒的情况下，这些鸡全部跳起来抢食才是科学的，这样才能更加快速地消耗掉这些谷粒。（不加锁）。<br>上面的小鸡就代表worker进程，谷粒代表高并发的请求，虽然比喻有些粗糙，但也能够说明问题。</p>
+<p>所以，在高并发场景下，关闭惊群锁，每个worker都把所有的监听套接字加入到自己的epoll中去，让它们都试图去accept新的请求，这样做能够提升处理请求的效率。<br>而且，从高版本的Nginx开始，惊群锁也默认置为了关闭状态。<br>官方对此作了压力测试的对比，具体可见如下：<a href="https://www.nginx.com/blog/socket-sharding-nginx-release-1-9-1/" target="_blank" rel="external">https://www.nginx.com/blog/socket-sharding-nginx-release-1-9-1/</a></p>
+<p><img src="/img/Nginx的网络模型-演变/4.png" alt=""><br>(先忽略reuseport，比对default和accept_mutux off的两种情况）</p>
+<h4 id="模型三"><a href="#模型三" class="headerlink" title="模型三"></a>模型三</h4><p>在Nginx1.9.1版本中，引入了新的socket网络选项，SO_REUSEPORT.<br>首先解释下这个选项：当socket设置了这个选项，可以让多个设置了这个选项的socket绑定和监听同一个端口（准确滴说是一个ip:port对）</p>
+<p>1 default时候的网络模型：</p>
+<p><img src="/img/Nginx的网络模型-演变/2.png" alt=""></p>
+<p>在原始模型中，所有的worker通过master的fork调用，都公用一个socket来监听80端口(或其它端口）</p>
+<p>如果开启SO_REUSEPORT特性，如下：</p>
+<p>server {<br>    listen 80 reuseport;<br>    server_name  localhost;<br>                      ..<br>}// reuseport是listen指令后的选项。这和Tengine实现的在event块中的开启这个选项有所不一样。</p>
+<p>则master在解析配置文件的时候创建监听套接字会有不同的动作：<br>它会按照worker的数目 n,对于每个ip:port对，都会克隆出多个监听socket，如下：（以4个worker为例）</p>
+<p><img src="/img/Nginx的网络模型-演变/5.png" alt=""></p>
+<p>可以看到，对于同一个端口，master建立了4个监听套接字，这四个监听套接字都bind到80端口。（需要注意的是，如果套接字不设置SO_REUSEPORT属性，那么当多个套接字bind到同一个端口时，会报错失败。当然这里每个套接字都设置了SO_REUSEPORT属性）</p>
+<p>然后经过fork出worker进程：</p>
+<p><img src="/img/Nginx的网络模型-演变/6.png" alt=""></p>
+<p>然后，每个worker会根据自己的ID顺序号，将“属于自己”的监听套接字加入到自己的epoll中。（这段是翻看源码才能获知的，一开始怎么都想不明白～～）<br>以监听80端口的那四个套接字来说，worker1进程只会把套接字1加入自己的epoll中。如下图所示：</p>
+<p><img src="/img/Nginx的网络模型-演变/7.png" alt=""></p>
+<p>这样，每个worker都再也不用去抢监听锁讲监听套接字加入自己的epoll系统中了，现在每个worker的epoll中始终都有着属于自己的监听套接字。可以对比一下：</p>
+<p><img src="/img/Nginx的网络模型-演变/8.png" alt=""></p>
+<p>注意：在这种模式下，若某个端口有请求到来，是内核来决定将请求分发到那个监听套接字上，而且这种分发一般都是较为均衡的。</p>
+<p>再来比对一下官方的测试数据：</p>
+<p><img src="/img/Nginx的网络模型-演变/4.png" alt=""></p>
+<p>其QPS和平均延时以及延时标准差都明显降低了。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>1 第一种默认的抢锁模式：<br>在大多数请求量适中的环境中都表现很优秀，而且从Nginx内部做到了解决惊群问题，具有跨平台的优势。而且由于解决了惊群问题，极大降低了CPU的负荷。</p>
+<p>2 第二种“惊群”模式：<br>在第二种模式下，Nginx任由“惊群”现象的产生，让每个worker都尽自己的力量去抢到更多的请求。第二种模式在高并发场景下非常有效，但由于每次请求都会让所有worker去争抢请求，必然增大了CPU的负荷。</p>
+<p>3 第三种reuseport模式：<br>在这种情况下，每个worker都有”专属于“自己的监听套接字，不用去挣抢锁，完全由内核将请求分发到各个套接字上面，做到了高效且降低CPU的负荷的特定。</p>
+<p>下面是官方的对比：</p>
+<p><img src="/img/Nginx的网络模型-演变/9.png" alt=""></p>
+
+          
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/Nginx请求11个处理阶段/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="fantaotao">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
+                <a class="post-title-link" href="/2017/03/09/Nginx请求11个处理阶段/" itemprop="url">
+                  Nginx请求11个处理阶段
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-03-09T17:29:28+08:00">
+                2017-03-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="模块钩子嵌入"><a href="#模块钩子嵌入" class="headerlink" title="模块钩子嵌入"></a>模块钩子嵌入</h3><p>在处理请求时，Nginx是分为11个不同的阶段来完成的。在Nginx中，模块对请求进行操作的唯一途径是在这11个阶段中嵌入自己的钩子函数。</p>
+<h4 id="数据结构支持"><a href="#数据结构支持" class="headerlink" title="数据结构支持"></a>数据结构支持</h4><h5 id="嵌入范例"><a href="#嵌入范例" class="headerlink" title="嵌入范例"></a>嵌入范例</h5><p>HTTP类型的模块嵌入钩子的过程是在解析配置文件的过程中完成的。通常会在模块上下文的ngx_http_post_config的地方插入自己的钩子，如ngx_http_access_module这个模块：</p>
+<p><img src="/img/Nginx请求11个处理阶段/1.png" alt=""><br><img src="/img/Nginx请求11个处理阶段/2.png" alt=""> </p>
+<p>这个模块就在ACCESS阶段嵌入了一个自己的钩子:ngx_http_access_handler. （注意：也可以有模块在不同的阶段嵌入多个钩子或者同一阶段嵌入多个钩子，这都是可以的）<br>这些钩子的存放位置就在cmcf-&gt;phases这个数组中。<br><img src="/img/Nginx请求11个处理阶段/3.png" alt=""><br><img src="/img/Nginx请求11个处理阶段/4.png" alt=""> </p>
+<p>可以看到，这个结构实际上是一个二维数组的形式，即不同阶段的钩子都是分开存放在不同的一维动态数组中的。</p>
+<h5 id="钩子布局"><a href="#钩子布局" class="headerlink" title="钩子布局"></a>钩子布局</h5><p>为了对HTTP的钩子嵌入有直观的认识，下面是一个常规配置中其钩子的情景图：</p>
+<p><img src="/img/Nginx请求11个处理阶段/5.png" alt=""> </p>
+<p>上图显示了常规情况下的钩子布局情况：<br>1，一共分为了11个阶段，“理论上”请求的处理过程是严格按照这个顺序来执行的。<br>2，并不是每个阶段都必须要有钩子，如上面的几个阶段是没有嵌入钩子的<br>3，每个阶段理论上可以嵌入任意多的钩子数量<br>4，第三方模块能够嵌入的阶段有限：0，1，3，5，6，9，10。而其它阶段（2，4，7，8）的钩子是由HTTP框架来嵌入的。</p>
+<h3 id="运行时“变身”"><a href="#运行时“变身”" class="headerlink" title="运行时“变身”"></a>运行时“变身”</h3><h4 id="一维钩子数组"><a href="#一维钩子数组" class="headerlink" title="一维钩子数组"></a>一维钩子数组</h4><p>上面的钩子布局是由配置文件直接解析后生成的，但在处理http请求时，并不是按照上面的二维钩子数组来处理的，而是将其变成了一维数组。即运行时是以一维数组的形式来调用各个钩子的。<br>首先在cmcf结构体中除了cmcf→phases数组（即上面的那个二维数组）外，还有一个结构体cmcf-&gt;pahse_engine也和钩子函数的布局有关：</p>
+<p><img src="/img/Nginx请求11个处理阶段/6.png" alt=""><br><img src="/img/Nginx请求11个处理阶段/7.png" alt=""><br><img src="/img/Nginx请求11个处理阶段/8.png" alt=""> </p>
+<p>cmcf-&gt;phase_engine的handlers字段是一个一维数组，它里面的内容由cmcf→phases二维钩子数组转换而来，它的存放的元素类型为ngx_http_phase_handlers_t结构体。<br>对于每个在二维数组中的钩子，都会在这个一维的handlers数组中对应着ngx_http_phases_handlers结构体（也即每个钩子都会有check，handler和next字段对应）。<br>在将二维钩子数组转换为一维钩子数组之前，需要对这个结构体的三个字段做简单的描述：<br>check: 一个包裹函数，每个钩子都会有一个check，且同一个阶段的所有钩子其check都是一样的，最重要的是，nginx从不直接调用钩子，而是调用其check，然后由check来调用钩子。<br>handler: 包裹的钩子函数，也即上面的钩子。<br>next：代表的含义相当于index，一维钩子数组下标。next表示从当前钩子所处阶段的下一个阶段中的第一个钩子在这个一维钩子数组中的下标，常用来快速跳到下一个阶段。<br>如果从上面的二维钩子数组转换为一维钩子数组来看，情景图如下：</p>
+<p><img src="/img/Nginx请求11个处理阶段/9.png" alt=""> </p>
+<p>在二维钩子数组中，每个阶段的钩子都按顺序被放在了相邻的一维钩子数组中.<br>补充说明：<br>1，r寻找到正确的server块（即r-&gt;srv_conf的正确指向）是在是这十一个阶段之前（在处理头部ngx_http_process_request_header的ngx_http_find_virtual_server中。也即在十一个处理阶段的前面。）<br>2，r寻找大正确的location块（即r→loc_conf的正确指向）是在FIND_CONFIG阶段。<br>3，r→main_conf肯定是唯一的（：））<br>4，在POST_REWRITE阶段（该阶段不能挂接自己的钩子，只会执行check函数）的next为1，暗示如果进行了rewrite跳转，那么下一个阶段会跳到FIND_CONF阶段去再次找寻到正确的location块。（通常如果没有rewrite的话，那么即phase＋＋，会进入PRE_ACCESS阶段。）</p>
+<h4 id="请求处理过程"><a href="#请求处理过程" class="headerlink" title="请求处理过程"></a>请求处理过程</h4><p>在请求r的结构体中有一个字段为phase_handler,其类型为整型，这个整型为被赋值为一维钩子数组中的下标，由它来决定了请求在各个阶段的执行顺序或者跳转顺序。</p>
+<p><img src="/img/Nginx请求11个处理阶段/10.png" alt=""> </p>
+<p>前面说过，在处理请求时，并不是直接调用各个钩子，而是调用了每个钩子的包裹函数-check函数：</p>
+<p><img src="/img/Nginx请求11个处理阶段/11.png" alt=""> </p>
+<p>上面这段代码就是钩子函数被调用的核心逻辑：<br>以r-&gt;phase_handler为下标，调用相应的check函数，具体的check函数实现逻辑决定了r→phase_handler的变化，以及check函数的返回值决定了是否将控制流程交付给事件处理模块<br>即如果某个check函数返回了 NGX_OK，那么http模块就将控制流交付给了事件处理模块。<br>而check函数的返回值又和具体的钩子返回值有关，所以为了能够了解请求的执行顺序或跳转顺序，需要知道check函数对r→phase_handler的影响以及各个check函数的返回值。</p>
+<h3 id="各阶段顺序详解"><a href="#各阶段顺序详解" class="headerlink" title="各阶段顺序详解"></a>各阶段顺序详解</h3><h4 id="check包裹函数"><a href="#check包裹函数" class="headerlink" title="check包裹函数"></a>check包裹函数</h4><p>下图总结了各个阶段的不同check包裹函数，其中有些阶段共用了一种check函数：</p>
+<p><img src="/img/Nginx请求11个处理阶段/12.png" alt=""> </p>
+<p>有三个不同的阶段（POST_READ,PREACCESS,LOG)共用了check函数:ngx_http_core_generic_phase. 两个不同阶段(SERVER_REWRTIE,REWRITE)共用了ngx_http_core_rewrite_phase.其余都是各自有check函数。<br>而开发者需要关注的check只有4个（因为只可以嵌入的7个阶段中）：</p>
+<p><img src="/img/Nginx请求11个处理阶段/13.png" alt=""> </p>
+<p>下面小节会逐步介绍它们中实现的逻辑是如何影响钩子的执行顺序的。</p>
+<h4 id="ngx-http-core-generic-phase"><a href="#ngx-http-core-generic-phase" class="headerlink" title="ngx_http_core_generic_phase"></a>ngx_http_core_generic_phase</h4><p>有三个阶段都共用了此check方法，如果要在post_read,preaccess,log阶段嵌入自己的钩子，那么必须对这个check有了解。<br>1 首先会调用模块嵌入的钩子，即handler. (当然第三方模块实现的钩子函数必须是非阻塞的），根据handler的返回值，它会有4中不同的逻辑。<br>2 若handler返回NGX_OK, 意味着当前阶段以及执行完毕，那么需要跳转到下一阶段的第一个钩子，即将r→phase_handler赋值为next，即使该阶段还有其它钩子，那么也将忽略不执行。同时check方法返回NGX_AGAIN.（返回AGAIN是保留了HTTP框架的控制流的）<br>3 若handler返回NGX_DECLINED,则会执行下一个钩子（举例来说，如果当前阶段有多个钩子，那么会继续在当前阶段执行下一个钩子，若该阶段只有这一个钩子，那么会流转到下一个阶段执行钩子），它将r→phase_handler＋＋。同时check返回AGAIN(保留控制流权）<br>4 若handler返回NGX_DONE/NGX_AGAIN,那么表示该handler没有处理完，需要多次调度才能完成（例如遇到了阻塞条件或者超时），这时候需要将控制权交出去，且r→phase_handler保持不变以便epoll在此触发时会继续调用此钩子。这时候check返回OK，交付控制流权给事件模块。<br>5 若handler返回其它值，表示执行遇到错误，需要结束这个请求，调用ngx_http_finalize_request.<br>故实现自己的钩子时需要根据逻辑确定返回值，进而影响到check的动作。</p>
+<h4 id="ngx-http-core-rewrite-phase"><a href="#ngx-http-core-rewrite-phase" class="headerlink" title="ngx_http_core_rewrite_phase"></a>ngx_http_core_rewrite_phase</h4><p>两个重写URL的阶段（server_rewrite,rewrite）共用了这个check。其逻辑和generic很相似<br>1 若handler返回NGX_DECLINED,则会执行下一个钩子（举例来说，如果当前阶段有多个钩子，那么会继续在当前阶段执行下一个钩子，若该阶段只有这一个钩子，那么会流转到下一个阶段执行钩子），它将r→phase_handler＋＋。同时check返回AGAIN(保留控制流权）<br>2  若handler返回NGX_DONE,那么表示该handler没有处理完，需要多次调度才能完成（例如遇到了阻塞条件或者超时），这时候需要将控制权交出去，且r→phase_handler保持不变以便epoll在此触发时会继续调用此钩子。这时候check返回OK，交付控制流权给事件模块。<br>3 若handler返回其它值(除DECLINED和DONE的其它值），表示执行遇到错误，需要结束这个请求，调用ngx_http_finalize_request.</p>
+<p>PS：和上一个check包裹不同的是，这个check不会试图跳转到下一个阶段，即handler没有机会返回NGX_OK而得到正确处理。原因是，NGINX认为在重写URL这个点上，所有模块的优先级都是一样的，不应该存在先被调用的钩子会将其它钩子的执行权限“剥夺”的逻辑。</p>
+<h4 id="ngx-http-core-access-phase"><a href="#ngx-http-core-access-phase" class="headerlink" title="ngx_http_core_access_phase"></a>ngx_http_core_access_phase</h4><p>(暂无）</p>
+<h4 id="ngx-http-core-content-phase（实际上的最后一阶段"><a href="#ngx-http-core-content-phase（实际上的最后一阶段" class="headerlink" title="ngx_http_core_content_phase（实际上的最后一阶段)"></a>ngx_http_core_content_phase（实际上的最后一阶段)</h4><p>该阶段有两个特点：<br>a 这是第三方模块最经常嵌入的阶段<br>b 嵌入这个阶段的方式有两种（其它阶段都只有唯一的一种）<br>该阶段的作用是真正处理请求内容。<br>1 实际上该阶段是请求处理的最后一个阶段（LOG阶段是在请求结束的时候被执行的），那么就不会有跳转到下一个阶段的逻辑<br>2 其余阶段均为对所有的请求都有作用，而在CONTENT阶段，应该有这样的逻辑：即只对匹配了某个location的请求进行处理，这是该阶段的第二种嵌入方式<br>其实现方式如下：<br>1  在该location下的ngx_http_core_loc_conf_t结构体中赋值clcf→handler.<br>2  在请求r的字段中r→content_handler 中，将其赋值为的clcf→handler.<br>3 包裹函数的处理逻辑：</p>
+<p><img src="/img/Nginx请求11个处理阶段/14.png" alt=""> </p>
+<p>PS:<br>1 若clcf的handler被调用，则这一阶段的其它钩子将被忽略。<br>2 若content钩子返回非DECLINED，则意味着该请求被处理完成，结束。<br>3 由于该阶段是实际处理请求的最后一阶段，所以需要对下一个钩子是否存在做有效性检查。<br>4 一般在content阶段的钩子会构造响应头部和响应体，然后发送出去。（如常见的static_handler获取静态文件然后发送的module）</p>
+
+          
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/openssl自建CA后颁发证书/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="fantaotao">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
+                <a class="post-title-link" href="/2017/03/09/openssl自建CA后颁发证书/" itemprop="url">
+                  openssl自建CA后颁发证书
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-03-09T17:11:00+08:00">
+                2017-03-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h3 id="一-自签证书实践"><a href="#一-自签证书实践" class="headerlink" title="一 自签证书实践"></a>一 自签证书实践</h3><p>在介绍颁发证书之前先做一个试验，用自签证书来通过chrome访问：<br>1  通过openssl一键自签证书，生成证书和私钥：<br>sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./nginx4.key -out ./nginx4.crt</p>
+<p><img src="/img/openssl自建CA后颁发证书/1.png" alt=""> </p>
+<p>2 然后将证书和私钥放入nginx：</p>
+<p><img src="/img/openssl自建CA后颁发证书/2.png" alt=""> </p>
+<p>3 通过chrome访问：</p>
+<p><img src="/img/openssl自建CA后颁发证书/3.png" alt=""> </p>
+<p>这是chrome的反应，它不相信这个服务器的证书，给出警告。 我们查看下证书：</p>
+<p><img src="/img/openssl自建CA后颁发证书/4.png" alt=""> </p>
+<p>4 如果我们继续前往，则chrome会把该证书放入自己的信任列表，之后访问就不会有这样的警告（但还是会显示不被信任）</p>
+<h3 id="二-自建CA"><a href="#二-自建CA" class="headerlink" title="二 自建CA"></a>二 自建CA</h3><p>然后我们自建CA后，CA根证书倒入，然后用CA签发的证书试验：<br>首先创建根证书，即CA自己的证书：<br>1 生成证书首先需要有自己的密钥对（即公钥和私钥），实际上只需要生成私钥即可，因为公钥是可以从私钥中提取出来的。先生成 私钥：</p>
+<p><img src="/img/openssl自建CA后颁发证书/5.png" alt=""><br>这样CA的密钥就存放在了ftt.key中</p>
+<p>2 CA自己给自己创建证书：</p>
+<p><img src="/img/openssl自建CA后颁发证书/6.png" alt=""> </p>
+<p>这样，CA的证书就放在了ftt.cert文件中。(在证书生成的过程中，所有的选项这里都是空白，可以自己选择地填写）</p>
+<p>3 将CA的证书和私钥放在CA服务器的合适位置，这里参考[1]：<br>如果安装了openssl，那么在centos中进入目录/etc/pki/CA,查看tls/openssl.cf文件，里面定义了各种关于CA的配置文件的名称和路径,其中需要关注的几项：</p>
+<p><img src="/img/openssl自建CA后颁发证书/7.png" alt=""> </p>
+<p>看到dir为CA的相对路径，即/etc/pki/CA<br>我们需要重新创建的文件有:  index.txt   serial </p>
+<p><img src="/img/openssl自建CA后颁发证书/8.png" alt=""> </p>
+<p>( 这里给serial赋值一个初始序号，echo 01 &gt; serail ) </p>
+<p>然后是certificate 即为CA的证书，它的名称为cacert.pem，放在/etc/pki/CA<br>所以需要把我们开始生成的CA证书移动到这里，更名为cacert.pem  </p>
+<p><img src="/img/openssl自建CA后颁发证书/9.png" alt=""> </p>
+<p>然后是private_key，私钥，一样，按照路径，更 名：</p>
+<p><img src="/img/openssl自建CA后颁发证书/10.png" alt=""> </p>
+<p>4 CA完成<br>到这里，CA的自签证书就已经完成了。接下来，需要给各位颁发证书啦，然后我们通过试验来验证下。</p>
+<h3 id="三-CA颁发证书"><a href="#三-CA颁发证书" class="headerlink" title="三 CA颁发证书"></a>三 CA颁发证书</h3><p>下面是颁发证书<br>1 用户nginx依然需要先有自己的密钥对,首先生成自己的私钥</p>
+<p><img src="/img/openssl自建CA后颁发证书/11.png" alt=""> </p>
+<p>2 接下来，生成证书请求文件：CA签发证书都是根据这个文件来进行的：</p>
+<p><img src="/img/openssl自建CA后颁发证书/12.png" alt=""> </p>
+<p>这里注意下，在common name阶段，是给出你域名的泛域名，通常证书分为等级的，一级证书、二级证书等，这里是四级证书了。一般商业上用的都是3级证书（<em>.sankuai.com,</em>.taobao.com)<br>(证书和域名等级不匹配，也会造成证书不受信任）</p>
+<p>3 提交csr，CA签发证书：</p>
+<p><img src="/img/openssl自建CA后颁发证书/13.png" alt=""> </p>
+<p>这里有个错误，faild to update databse,原因是这个CA之前已经签发过相同泛域名的证书了,*.inf.sankuai.com需要先吊销后才能再签发同样的泛域名证书。<br>这里为了简单点，直接将index.txt数据库删掉，然后再次touch一个：</p>
+<p><img src="/img/openssl自建CA后颁发证书/14.png" alt=""> </p>
+<p>再次签发：</p>
+<p><img src="/img/openssl自建CA后颁发证书/15.png" alt=""> </p>
+<p>ok，完成了nginx2.crt的签发。</p>
+<p>下面是从客户端倒入CA根证书：<br>以chrome为例，这里倒入根证书，参考[2]</p>
+<p>1 打开[其它］→[钥匙串访问］→[选择系统］<br><img src="/img/openssl自建CA后颁发证书/16.png" alt=""> </p>
+<p>2 选择文件→导入项目<br><img src="/img/openssl自建CA后颁发证书/17.png" alt=""><br><img src="/img/openssl自建CA后颁发证书/18.png" alt=""> </p>
+<p>导入你在第二步创建的CA根证书。</p>
+<p>3 将所有选项修改为始终信任</p>
+<p><img src="/img/openssl自建CA后颁发证书/19.png" alt=""> </p>
+<p>4 这样，你会看到，表示已经成功导入根证书 </p>
+<p><img src="/img/openssl自建CA后颁发证书/20.png" alt=""> </p>
+<h3 id="五-颁发证书验证"><a href="#五-颁发证书验证" class="headerlink" title="五 颁发证书验证"></a>五 颁发证书验证</h3><p>再次通过nginx来试验：</p>
+<p><img src="/img/openssl自建CA后颁发证书/21.png" alt=""><br><img src="/img/openssl自建CA后颁发证书/22.png" alt=""> </p>
+<p>可以看到，nginx2.crt证书已经被chrome信任了（从CA根证书签发的） （不过采用的是sha-1算法，chrome标记为了不安全，这个可以自己改变为sha-256算法，参考[3]) </p>
+<p>tips：<br>1  在给用户签发证书的时候，CA对csr（证书请求文件有要求）需要符合一定条件的csr才能签成功，不过可以通过修改CA的tls/openssl.cnf文件来避免这个问题。（进行测试嘛）<br><img src="/img/openssl自建CA后颁发证书/23.png" alt=""> </p>
+<p>把这里全部修改为optional即可避免这个问题。</p>
+<p>2 证书和域名的匹配问题：<br>看到nuomi的网站也是用baidu.com的证书。</p>
+<h3 id="六-参考"><a href="#六-参考" class="headerlink" title="六 参考"></a>六 参考</h3><p>refer:<br>［1］<a href="http://seanlook.com/2015/01/18/openssl-self-sign-ca/" target="_blank" rel="external">http://seanlook.com/2015/01/18/openssl-self-sign-ca/</a>  （自建CA）<br>［2］<a href="http://www.cnblogs.com/snandy/p/3262661.html（导入根证书）" target="_blank" rel="external">http://www.cnblogs.com/snandy/p/3262661.html（导入根证书）</a></p>
+
+          
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
   </section>
 
   
+  <nav class="pagination">
+    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right"></i></a>
+  </nav>
+
 
           
           </div>
@@ -564,7 +1810,7 @@
           
             <div class="site-state-item site-state-posts">
               <a href="/archives">
-                <span class="site-state-item-count">2</span>
+                <span class="site-state-item-count">12</span>
                 <span class="site-state-item-name">Artikel</span>
               </a>
             </div>

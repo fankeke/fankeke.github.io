@@ -1,0 +1,740 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh_Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.0" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Hexo, NexT" />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.0" />
+
+
+
+
+
+
+<meta name="description" content="一 自签证书实践在介绍颁发证书之前先做一个试验，用自签证书来通过chrome访问：1  通过openssl一键自签证书，生成证书和私钥：sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./nginx4.key -out ./nginx4.crt
+ 
+2 然后将证书和私钥放入nginx：
+ 
+3 通过chrome访问：">
+<meta property="og:type" content="article">
+<meta property="og:title" content="openssl自建CA后颁发证书">
+<meta property="og:url" content="http://yoursite.com/2017/03/09/openssl自建CA后颁发证书/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="一 自签证书实践在介绍颁发证书之前先做一个试验，用自签证书来通过chrome访问：1  通过openssl一键自签证书，生成证书和私钥：sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./nginx4.key -out ./nginx4.crt
+ 
+2 然后将证书和私钥放入nginx：
+ 
+3 通过chrome访问：">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/1.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/2.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/3.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/4.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/5.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/6.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/7.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/8.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/9.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/10.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/11.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/12.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/13.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/14.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/15.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/16.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/17.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/18.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/19.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/20.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/21.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/22.png">
+<meta property="og:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/23.png">
+<meta property="og:updated_time" content="2017-03-10T02:54:24.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="openssl自建CA后颁发证书">
+<meta name="twitter:description" content="一 自签证书实践在介绍颁发证书之前先做一个试验，用自签证书来通过chrome访问：1  通过openssl一键自签证书，生成证书和私钥：sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./nginx4.key -out ./nginx4.crt
+ 
+2 然后将证书和私钥放入nginx：
+ 
+3 通过chrome访问：">
+<meta name="twitter:image" content="http://yoursite.com/img/openssl自建CA后颁发证书/1.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post","offset":12,"offset_float":0,"b2t":false,"scrollpercent":false},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: 'Author'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2017/03/09/openssl自建CA后颁发证书/"/>
+
+
+
+
+
+  <title> openssl自建CA后颁发证书 | Hexo </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh_Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hexo</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            Startseite
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            Archiv
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            Tags
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/openssl自建CA后颁发证书/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="fantaotao">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                openssl自建CA后颁发证书
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-03-09T17:11:00+08:00">
+                2017-03-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h3 id="一-自签证书实践"><a href="#一-自签证书实践" class="headerlink" title="一 自签证书实践"></a>一 自签证书实践</h3><p>在介绍颁发证书之前先做一个试验，用自签证书来通过chrome访问：<br>1  通过openssl一键自签证书，生成证书和私钥：<br>sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ./nginx4.key -out ./nginx4.crt</p>
+<p><img src="/img/openssl自建CA后颁发证书/1.png" alt=""> </p>
+<p>2 然后将证书和私钥放入nginx：</p>
+<p><img src="/img/openssl自建CA后颁发证书/2.png" alt=""> </p>
+<p>3 通过chrome访问：</p>
+<p><img src="/img/openssl自建CA后颁发证书/3.png" alt=""> </p>
+<p>这是chrome的反应，它不相信这个服务器的证书，给出警告。 我们查看下证书：</p>
+<p><img src="/img/openssl自建CA后颁发证书/4.png" alt=""> </p>
+<p>4 如果我们继续前往，则chrome会把该证书放入自己的信任列表，之后访问就不会有这样的警告（但还是会显示不被信任）</p>
+<h3 id="二-自建CA"><a href="#二-自建CA" class="headerlink" title="二 自建CA"></a>二 自建CA</h3><p>然后我们自建CA后，CA根证书倒入，然后用CA签发的证书试验：<br>首先创建根证书，即CA自己的证书：<br>1 生成证书首先需要有自己的密钥对（即公钥和私钥），实际上只需要生成私钥即可，因为公钥是可以从私钥中提取出来的。先生成 私钥：</p>
+<p><img src="/img/openssl自建CA后颁发证书/5.png" alt=""><br>这样CA的密钥就存放在了ftt.key中</p>
+<p>2 CA自己给自己创建证书：</p>
+<p><img src="/img/openssl自建CA后颁发证书/6.png" alt=""> </p>
+<p>这样，CA的证书就放在了ftt.cert文件中。(在证书生成的过程中，所有的选项这里都是空白，可以自己选择地填写）</p>
+<p>3 将CA的证书和私钥放在CA服务器的合适位置，这里参考[1]：<br>如果安装了openssl，那么在centos中进入目录/etc/pki/CA,查看tls/openssl.cf文件，里面定义了各种关于CA的配置文件的名称和路径,其中需要关注的几项：</p>
+<p><img src="/img/openssl自建CA后颁发证书/7.png" alt=""> </p>
+<p>看到dir为CA的相对路径，即/etc/pki/CA<br>我们需要重新创建的文件有:  index.txt   serial </p>
+<p><img src="/img/openssl自建CA后颁发证书/8.png" alt=""> </p>
+<p>( 这里给serial赋值一个初始序号，echo 01 &gt; serail ) </p>
+<p>然后是certificate 即为CA的证书，它的名称为cacert.pem，放在/etc/pki/CA<br>所以需要把我们开始生成的CA证书移动到这里，更名为cacert.pem  </p>
+<p><img src="/img/openssl自建CA后颁发证书/9.png" alt=""> </p>
+<p>然后是private_key，私钥，一样，按照路径，更 名：</p>
+<p><img src="/img/openssl自建CA后颁发证书/10.png" alt=""> </p>
+<p>4 CA完成<br>到这里，CA的自签证书就已经完成了。接下来，需要给各位颁发证书啦，然后我们通过试验来验证下。</p>
+<h3 id="三-CA颁发证书"><a href="#三-CA颁发证书" class="headerlink" title="三 CA颁发证书"></a>三 CA颁发证书</h3><p>下面是颁发证书<br>1 用户nginx依然需要先有自己的密钥对,首先生成自己的私钥</p>
+<p><img src="/img/openssl自建CA后颁发证书/11.png" alt=""> </p>
+<p>2 接下来，生成证书请求文件：CA签发证书都是根据这个文件来进行的：</p>
+<p><img src="/img/openssl自建CA后颁发证书/12.png" alt=""> </p>
+<p>这里注意下，在common name阶段，是给出你域名的泛域名，通常证书分为等级的，一级证书、二级证书等，这里是四级证书了。一般商业上用的都是3级证书（<em>.sankuai.com,</em>.taobao.com)<br>(证书和域名等级不匹配，也会造成证书不受信任）</p>
+<p>3 提交csr，CA签发证书：</p>
+<p><img src="/img/openssl自建CA后颁发证书/13.png" alt=""> </p>
+<p>这里有个错误，faild to update databse,原因是这个CA之前已经签发过相同泛域名的证书了,*.inf.sankuai.com需要先吊销后才能再签发同样的泛域名证书。<br>这里为了简单点，直接将index.txt数据库删掉，然后再次touch一个：</p>
+<p><img src="/img/openssl自建CA后颁发证书/14.png" alt=""> </p>
+<p>再次签发：</p>
+<p><img src="/img/openssl自建CA后颁发证书/15.png" alt=""> </p>
+<p>ok，完成了nginx2.crt的签发。</p>
+<p>下面是从客户端倒入CA根证书：<br>以chrome为例，这里倒入根证书，参考[2]</p>
+<p>1 打开[其它］→[钥匙串访问］→[选择系统］<br><img src="/img/openssl自建CA后颁发证书/16.png" alt=""> </p>
+<p>2 选择文件→导入项目<br><img src="/img/openssl自建CA后颁发证书/17.png" alt=""><br><img src="/img/openssl自建CA后颁发证书/18.png" alt=""> </p>
+<p>导入你在第二步创建的CA根证书。</p>
+<p>3 将所有选项修改为始终信任</p>
+<p><img src="/img/openssl自建CA后颁发证书/19.png" alt=""> </p>
+<p>4 这样，你会看到，表示已经成功导入根证书 </p>
+<p><img src="/img/openssl自建CA后颁发证书/20.png" alt=""> </p>
+<h3 id="五-颁发证书验证"><a href="#五-颁发证书验证" class="headerlink" title="五 颁发证书验证"></a>五 颁发证书验证</h3><p>再次通过nginx来试验：</p>
+<p><img src="/img/openssl自建CA后颁发证书/21.png" alt=""><br><img src="/img/openssl自建CA后颁发证书/22.png" alt=""> </p>
+<p>可以看到，nginx2.crt证书已经被chrome信任了（从CA根证书签发的） （不过采用的是sha-1算法，chrome标记为了不安全，这个可以自己改变为sha-256算法，参考[3]) </p>
+<p>tips：<br>1  在给用户签发证书的时候，CA对csr（证书请求文件有要求）需要符合一定条件的csr才能签成功，不过可以通过修改CA的tls/openssl.cnf文件来避免这个问题。（进行测试嘛）<br><img src="/img/openssl自建CA后颁发证书/23.png" alt=""> </p>
+<p>把这里全部修改为optional即可避免这个问题。</p>
+<p>2 证书和域名的匹配问题：<br>看到nuomi的网站也是用baidu.com的证书。</p>
+<h3 id="六-参考"><a href="#六-参考" class="headerlink" title="六 参考"></a>六 参考</h3><p>refer:<br>［1］<a href="http://seanlook.com/2015/01/18/openssl-self-sign-ca/" target="_blank" rel="external">http://seanlook.com/2015/01/18/openssl-self-sign-ca/</a>  （自建CA）<br>［2］<a href="http://www.cnblogs.com/snandy/p/3262661.html（导入根证书）" target="_blank" rel="external">http://www.cnblogs.com/snandy/p/3262661.html（导入根证书）</a></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+
+      
+        
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/03/09/nginx中IP与证书的数量关系/" rel="next" title="nginx中IP与证书的数量关系">
+                <i class="fa fa-chevron-left"></i> nginx中IP与证书的数量关系
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/03/09/Nginx请求11个处理阶段/" rel="prev" title="Nginx请求11个处理阶段">
+                Nginx请求11个处理阶段 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+          
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            Inhaltsverzeichnis
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            Übersicht
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.gif"
+               alt="fantaotao" />
+          <p class="site-author-name" itemprop="name">fantaotao</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+          
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">12</span>
+                <span class="site-state-item-name">Artikel</span>
+              </a>
+            </div>
+          
+
+          
+
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#一-自签证书实践"><span class="nav-number">1.</span> <span class="nav-text">一 自签证书实践</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#二-自建CA"><span class="nav-number">2.</span> <span class="nav-text">二 自建CA</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#三-CA颁发证书"><span class="nav-number">3.</span> <span class="nav-text">三 CA颁发证书</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#五-颁发证书验证"><span class="nav-number">4.</span> <span class="nav-text">五 颁发证书验证</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#六-参考"><span class="nav-number">5.</span> <span class="nav-text">六 参考</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">fantaotao</span>
+</div>
+
+
+<div class="powered-by">
+  Erstellt mit  <a class="theme-link" href="https://hexo.io">Hexo</a>
+</div>
+
+<div class="theme-info">
+  Theme -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+
+  
+
+</body>
+</html>

@@ -1,0 +1,709 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh_Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.0" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Hexo, NexT" />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.0" />
+
+
+
+
+
+
+<meta name="description" content="前言Nginx的高性能得益于其优秀的网络架构模型。为了充分发挥多核CPU的优势，让每个进程都“亲缘”一个CPU，减少上下文切换带来的损耗，同时也需要解决多个进程监听同一个端口带来的各种问题，本文将简要描述下Nginx的网络架构的演变过程。
+网络模型模型一Nginx是单主(master)多从(worker)模式的进程架构，Master进程在解析配置文件的时候，对于每个监听的端口，将创建一个监听soc">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Nginx的网络模型 演变 ">
+<meta property="og:url" content="http://yoursite.com/2017/03/09/Nginx的网络模型-演变/index.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="前言Nginx的高性能得益于其优秀的网络架构模型。为了充分发挥多核CPU的优势，让每个进程都“亲缘”一个CPU，减少上下文切换带来的损耗，同时也需要解决多个进程监听同一个端口带来的各种问题，本文将简要描述下Nginx的网络架构的演变过程。
+网络模型模型一Nginx是单主(master)多从(worker)模式的进程架构，Master进程在解析配置文件的时候，对于每个监听的端口，将创建一个监听soc">
+<meta property="og:image" content="http://yoursite.com/img/Nginx的网络模型-演变/1.png">
+<meta property="og:image" content="http://yoursite.com/img/Nginx的网络模型-演变/2.png">
+<meta property="og:image" content="http://yoursite.com/img/Nginx的网络模型-演变/3.png">
+<meta property="og:image" content="http://yoursite.com/img/Nginx的网络模型-演变/4.png">
+<meta property="og:image" content="http://yoursite.com/img/Nginx的网络模型-演变/2.png">
+<meta property="og:image" content="http://yoursite.com/img/Nginx的网络模型-演变/5.png">
+<meta property="og:image" content="http://yoursite.com/img/Nginx的网络模型-演变/6.png">
+<meta property="og:image" content="http://yoursite.com/img/Nginx的网络模型-演变/7.png">
+<meta property="og:image" content="http://yoursite.com/img/Nginx的网络模型-演变/8.png">
+<meta property="og:image" content="http://yoursite.com/img/Nginx的网络模型-演变/4.png">
+<meta property="og:image" content="http://yoursite.com/img/Nginx的网络模型-演变/9.png">
+<meta property="og:updated_time" content="2017-03-10T02:53:25.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Nginx的网络模型 演变 ">
+<meta name="twitter:description" content="前言Nginx的高性能得益于其优秀的网络架构模型。为了充分发挥多核CPU的优势，让每个进程都“亲缘”一个CPU，减少上下文切换带来的损耗，同时也需要解决多个进程监听同一个端口带来的各种问题，本文将简要描述下Nginx的网络架构的演变过程。
+网络模型模型一Nginx是单主(master)多从(worker)模式的进程架构，Master进程在解析配置文件的时候，对于每个监听的端口，将创建一个监听soc">
+<meta name="twitter:image" content="http://yoursite.com/img/Nginx的网络模型-演变/1.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post","offset":12,"offset_float":0,"b2t":false,"scrollpercent":false},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: 'Author'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2017/03/09/Nginx的网络模型-演变/"/>
+
+
+
+
+
+  <title> Nginx的网络模型 演变  | Hexo </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh_Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Hexo</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            Startseite
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            Archiv
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            Tags
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/Nginx的网络模型-演变/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="fantaotao">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Hexo">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Nginx的网络模型 演变 
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">Veröffentlicht am</span>
+              
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-03-09T17:53:20+08:00">
+                2017-03-09
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h3 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h3><p>Nginx的高性能得益于其优秀的网络架构模型。为了充分发挥多核CPU的优势，让每个进程都“亲缘”一个CPU，减少上下文切换带来的损耗，同时也需要解决多个进程监听同一个端口带来的各种问题，本文将简要描述下Nginx的网络架构的演变过程。</p>
+<h3 id="网络模型"><a href="#网络模型" class="headerlink" title="网络模型"></a>网络模型</h3><h4 id="模型一"><a href="#模型一" class="headerlink" title="模型一"></a>模型一</h4><p>Nginx是单主(master)多从(worker)模式的进程架构，Master进程在解析配置文件的时候，对于每个监听的端口，将创建一个监听socket套接字，为了描述，这里假设在配置文件中开启了80和443两个端口。其网络模型如下：</p>
+<p><img src="/img/Nginx的网络模型-演变/1.png" alt=""></p>
+<p>在解析完配置文件后，master进程开始创建子进程，这些子进程会进程master的资源，当然包括套接字等，如果开启4个worker，则其网络模型如下：</p>
+<p><img src="/img/Nginx的网络模型-演变/2.png" alt=""></p>
+<p>这时候，如果有请求来临，内核会唤醒所有的进程，这就是惊群现象。（先不谈Linux内核是否解决了惊群现象，Nginx作为一个跨平台的服务，必须从自身解决这个问题）<br>传统的网络服务（如apache等）会采用每个请求分派一个线程来处理，而Nginx采用的IO多路复用机制（有时候也叫做事件驱动），如在Linux平台的epoll，BSD平台的kqueue等，配合非阻塞的soket API，充分利用了CPU，提升了网络服务质量。下面会以Linux平台下的epoll为例，说明Nginx是如何解决惊群问题的。</p>
+<p>1 各个worker进程会创建自己的epoll句柄（不包括master）<br>2 接着会判读，管理员是否开启了惊群锁且worker进程的数量大于1。<br>   a,惊群锁默认是关闭的，如果管理员显示开启了accept_mutux off,则会禁用，Nginx就不会解决惊群问题。<br>   b,如果worker的进程数量小于2，那么不存在惊群问题，Nginx也会不解决惊群问题。</p>
+<p>3 如果惊群生效，则每个worker首先不会去把监听套接字描述符加入自己的epoll系统，而是先去抢一把自旋锁，即对所有监听套接字的“控制权”。</p>
+<p>4 抢到锁的worker进程，会将所有的监听套接字都加入自己的epoll中，而没有抢到worker会首先删除自己epoll中监听的监听套接字（如果有的话）。这样当有新请求来到时，只会有一个worker被唤醒，从而解决了惊群的问题。</p>
+<p>其流程图大约如下：</p>
+<p><img src="/img/Nginx的网络模型-演变/3.png" alt=""></p>
+<p>小结：<br>1，在请求量不是特别大的情况下，Nginx这种解决惊群现象的手段提升了网络服务质量，避免多个进程无谓的被“唤醒”去accept请求失败而导致的损耗。<br>2，然后现在在很多情况下证明：当并发请求量过大时，这种依靠抢锁机制解决惊群的手段，会导致处理请求的效率下降，所以现在较多的建议是关闭accept_mutux锁，让Nginx不解决惊群。 </p>
+<h4 id="模型二"><a href="#模型二" class="headerlink" title="模型二"></a>模型二</h4><p>在第一种模型下，通过抢锁来保障每次新请求到来时都只会有一个worker去执行accept，避免其它worker的无谓消耗。这种情况在高并发场景下受到了质疑，事实上，在高并发情况下，关闭惊群锁而不让Nginx处理“惊群”反而会提升处理效率。下面举一个例子说明：</p>
+<p>试想，有一群小鸡，你撒谷粒给这群鸡吃。<br>a，一粒粒撒的时候，如果不加处理，每个鸡都会跳起来，但最终只有一只鸡能够吃到这粒米。<br>所以在一粒粒撒的时候，需要有锁，不能让每个鸡都跳起来，这样浪费它们的精力，必须要让它们遵守秩序，一个个来（加锁）</p>
+<p>b，然而，如果你撒了一大把谷粒，这时候还让它们一个个来，这样是很不合理的，所以，在撒大把谷粒的情况下，这些鸡全部跳起来抢食才是科学的，这样才能更加快速地消耗掉这些谷粒。（不加锁）。<br>上面的小鸡就代表worker进程，谷粒代表高并发的请求，虽然比喻有些粗糙，但也能够说明问题。</p>
+<p>所以，在高并发场景下，关闭惊群锁，每个worker都把所有的监听套接字加入到自己的epoll中去，让它们都试图去accept新的请求，这样做能够提升处理请求的效率。<br>而且，从高版本的Nginx开始，惊群锁也默认置为了关闭状态。<br>官方对此作了压力测试的对比，具体可见如下：<a href="https://www.nginx.com/blog/socket-sharding-nginx-release-1-9-1/" target="_blank" rel="external">https://www.nginx.com/blog/socket-sharding-nginx-release-1-9-1/</a></p>
+<p><img src="/img/Nginx的网络模型-演变/4.png" alt=""><br>(先忽略reuseport，比对default和accept_mutux off的两种情况）</p>
+<h4 id="模型三"><a href="#模型三" class="headerlink" title="模型三"></a>模型三</h4><p>在Nginx1.9.1版本中，引入了新的socket网络选项，SO_REUSEPORT.<br>首先解释下这个选项：当socket设置了这个选项，可以让多个设置了这个选项的socket绑定和监听同一个端口（准确滴说是一个ip:port对）</p>
+<p>1 default时候的网络模型：</p>
+<p><img src="/img/Nginx的网络模型-演变/2.png" alt=""></p>
+<p>在原始模型中，所有的worker通过master的fork调用，都公用一个socket来监听80端口(或其它端口）</p>
+<p>如果开启SO_REUSEPORT特性，如下：</p>
+<p>server {<br>    listen 80 reuseport;<br>    server_name  localhost;<br>                      ..<br>}// reuseport是listen指令后的选项。这和Tengine实现的在event块中的开启这个选项有所不一样。</p>
+<p>则master在解析配置文件的时候创建监听套接字会有不同的动作：<br>它会按照worker的数目 n,对于每个ip:port对，都会克隆出多个监听socket，如下：（以4个worker为例）</p>
+<p><img src="/img/Nginx的网络模型-演变/5.png" alt=""></p>
+<p>可以看到，对于同一个端口，master建立了4个监听套接字，这四个监听套接字都bind到80端口。（需要注意的是，如果套接字不设置SO_REUSEPORT属性，那么当多个套接字bind到同一个端口时，会报错失败。当然这里每个套接字都设置了SO_REUSEPORT属性）</p>
+<p>然后经过fork出worker进程：</p>
+<p><img src="/img/Nginx的网络模型-演变/6.png" alt=""></p>
+<p>然后，每个worker会根据自己的ID顺序号，将“属于自己”的监听套接字加入到自己的epoll中。（这段是翻看源码才能获知的，一开始怎么都想不明白～～）<br>以监听80端口的那四个套接字来说，worker1进程只会把套接字1加入自己的epoll中。如下图所示：</p>
+<p><img src="/img/Nginx的网络模型-演变/7.png" alt=""></p>
+<p>这样，每个worker都再也不用去抢监听锁讲监听套接字加入自己的epoll系统中了，现在每个worker的epoll中始终都有着属于自己的监听套接字。可以对比一下：</p>
+<p><img src="/img/Nginx的网络模型-演变/8.png" alt=""></p>
+<p>注意：在这种模式下，若某个端口有请求到来，是内核来决定将请求分发到那个监听套接字上，而且这种分发一般都是较为均衡的。</p>
+<p>再来比对一下官方的测试数据：</p>
+<p><img src="/img/Nginx的网络模型-演变/4.png" alt=""></p>
+<p>其QPS和平均延时以及延时标准差都明显降低了。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>1 第一种默认的抢锁模式：<br>在大多数请求量适中的环境中都表现很优秀，而且从Nginx内部做到了解决惊群问题，具有跨平台的优势。而且由于解决了惊群问题，极大降低了CPU的负荷。</p>
+<p>2 第二种“惊群”模式：<br>在第二种模式下，Nginx任由“惊群”现象的产生，让每个worker都尽自己的力量去抢到更多的请求。第二种模式在高并发场景下非常有效，但由于每次请求都会让所有worker去争抢请求，必然增大了CPU的负荷。</p>
+<p>3 第三种reuseport模式：<br>在这种情况下，每个worker都有”专属于“自己的监听套接字，不用去挣抢锁，完全由内核将请求分发到各个套接字上面，做到了高效且降低CPU的负荷的特定。</p>
+<p>下面是官方的对比：</p>
+<p><img src="/img/Nginx的网络模型-演变/9.png" alt=""></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+
+    <footer class="post-footer">
+      
+
+      
+        
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/03/09/Nginx请求11个处理阶段/" rel="next" title="Nginx请求11个处理阶段">
+                <i class="fa fa-chevron-left"></i> Nginx请求11个处理阶段
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/03/09/redis集群及ngx-lua接入方案/" rel="prev" title="redis集群及ngx_lua接入方案">
+                redis集群及ngx_lua接入方案 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+          
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            Inhaltsverzeichnis
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            Übersicht
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.gif"
+               alt="fantaotao" />
+          <p class="site-author-name" itemprop="name">fantaotao</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+          
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">12</span>
+                <span class="site-state-item-name">Artikel</span>
+              </a>
+            </div>
+          
+
+          
+
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#网络模型"><span class="nav-number">2.</span> <span class="nav-text">网络模型</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#模型一"><span class="nav-number">2.1.</span> <span class="nav-text">模型一</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#模型二"><span class="nav-number">2.2.</span> <span class="nav-text">模型二</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#模型三"><span class="nav-number">2.3.</span> <span class="nav-text">模型三</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">fantaotao</span>
+</div>
+
+
+<div class="powered-by">
+  Erstellt mit  <a class="theme-link" href="https://hexo.io">Hexo</a>
+</div>
+
+<div class="theme-info">
+  Theme -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+    
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+
+  
+
+</body>
+</html>

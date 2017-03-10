@@ -87,31 +87,33 @@
 
 
 
-<meta name="description" content="导言为了在接入层面做到对请求精细化的控制和导流，需要在nginx上做分流的工作，解决包括但不限于几种需求，如版本上线，灰度发布、特殊用户，特殊版本等。其工作流程如下：
-
-在业务侧，可以根据需求将其业务节点划分为组，可以按照自己定制的策略来反馈给nginx，根据需求来导流相应分组。
-NGINX＋Lua实现方案预期在到达分流目的同时，需要有到达其它几个目的：1 配置方便，兼容其它功能如果某个服务需要接">
+<meta name="description" content="草稿版，后续整理
+1 和nginx中自建内存池一样，共享内存也用slab来管理，减少系统调用次数2 无阻塞锁和自旋锁的实现都建立在共享内存的基础上 
+在锁结构ngx_shmtx_t中的lock指向了某处共享内存的地址，对这块地址的操作和赋值就代表对锁的争抢。这里的赋值操作都是gcc中的原子变量操作 。 
+无阻塞锁和自旋锁都是ngx_shmtx_t，只不过对于获取锁的方式不一样。（获取的意思是将该共">
 <meta property="og:type" content="article">
-<meta property="og:title" content="基于ngx_lua的分流系统设计">
-<meta property="og:url" content="http://yoursite.com/2017/03/09/基于ngx-lua的分流系统设计/index.html">
+<meta property="og:title" content="nginx中锁的实现">
+<meta property="og:url" content="http://yoursite.com/2017/03/09/nginx中锁的实现/index.html">
 <meta property="og:site_name" content="Hexo">
-<meta property="og:description" content="导言为了在接入层面做到对请求精细化的控制和导流，需要在nginx上做分流的工作，解决包括但不限于几种需求，如版本上线，灰度发布、特殊用户，特殊版本等。其工作流程如下：
-
-在业务侧，可以根据需求将其业务节点划分为组，可以按照自己定制的策略来反馈给nginx，根据需求来导流相应分组。
-NGINX＋Lua实现方案预期在到达分流目的同时，需要有到达其它几个目的：1 配置方便，兼容其它功能如果某个服务需要接">
-<meta property="og:image" content="http://yoursite.com/img/基于ngx_lua的分流系统设计/1.png">
-<meta property="og:image" content="http://yoursite.com/img/基于ngx_lua的分流系统设计/2.png">
-<meta property="og:image" content="http://yoursite.com/img/基于ngx_lua的分流系统设计/3.png">
-<meta property="og:image" content="http://yoursite.com/img/基于ngx_lua的分流系统设计/4.png">
-<meta property="og:image" content="http://yoursite.com/img/基于ngx_lua的分流系统设计/5.png">
-<meta property="og:updated_time" content="2017-03-10T02:54:50.000Z">
+<meta property="og:description" content="草稿版，后续整理
+1 和nginx中自建内存池一样，共享内存也用slab来管理，减少系统调用次数2 无阻塞锁和自旋锁的实现都建立在共享内存的基础上 
+在锁结构ngx_shmtx_t中的lock指向了某处共享内存的地址，对这块地址的操作和赋值就代表对锁的争抢。这里的赋值操作都是gcc中的原子变量操作 。 
+无阻塞锁和自旋锁都是ngx_shmtx_t，只不过对于获取锁的方式不一样。（获取的意思是将该共">
+<meta property="og:image" content="http://yoursite.com/img/nginx中锁的实现/1.png">
+<meta property="og:image" content="http://yoursite.com/img/nginx中锁的实现/2.png">
+<meta property="og:image" content="http://yoursite.com/img/nginx中锁的实现/3.png">
+<meta property="og:image" content="http://yoursite.com/img/nginx中锁的实现/4.png">
+<meta property="og:image" content="http://yoursite.com/img/nginx中锁的实现/5.png">
+<meta property="og:image" content="http://yoursite.com/img/nginx中锁的实现/6.png">
+<meta property="og:image" content="http://yoursite.com/img/nginx中锁的实现/7.png">
+<meta property="og:updated_time" content="2017-03-10T02:54:11.000Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="基于ngx_lua的分流系统设计">
-<meta name="twitter:description" content="导言为了在接入层面做到对请求精细化的控制和导流，需要在nginx上做分流的工作，解决包括但不限于几种需求，如版本上线，灰度发布、特殊用户，特殊版本等。其工作流程如下：
-
-在业务侧，可以根据需求将其业务节点划分为组，可以按照自己定制的策略来反馈给nginx，根据需求来导流相应分组。
-NGINX＋Lua实现方案预期在到达分流目的同时，需要有到达其它几个目的：1 配置方便，兼容其它功能如果某个服务需要接">
-<meta name="twitter:image" content="http://yoursite.com/img/基于ngx_lua的分流系统设计/1.png">
+<meta name="twitter:title" content="nginx中锁的实现">
+<meta name="twitter:description" content="草稿版，后续整理
+1 和nginx中自建内存池一样，共享内存也用slab来管理，减少系统调用次数2 无阻塞锁和自旋锁的实现都建立在共享内存的基础上 
+在锁结构ngx_shmtx_t中的lock指向了某处共享内存的地址，对这块地址的操作和赋值就代表对锁的争抢。这里的赋值操作都是gcc中的原子变量操作 。 
+无阻塞锁和自旋锁都是ngx_shmtx_t，只不过对于获取锁的方式不一样。（获取的意思是将该共">
+<meta name="twitter:image" content="http://yoursite.com/img/nginx中锁的实现/1.png">
 
 
 
@@ -139,13 +141,13 @@ NGINX＋Lua实现方案预期在到达分流目的同时，需要有到达其它
 
 
 
-  <link rel="canonical" href="http://yoursite.com/2017/03/09/基于ngx-lua的分流系统设计/"/>
+  <link rel="canonical" href="http://yoursite.com/2017/03/09/nginx中锁的实现/"/>
 
 
 
 
 
-  <title> 基于ngx_lua的分流系统设计 | Hexo </title>
+  <title> nginx中锁的实现 | Hexo </title>
 </head>
 
 <body itemscope itemtype="http://schema.org/WebPage" lang="zh_Hans">
@@ -264,7 +266,7 @@ NGINX＋Lua实现方案预期在到达分流目的同时，需要有到达其它
   
 
   <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/基于ngx-lua的分流系统设计/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/03/09/nginx中锁的实现/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="fantaotao">
@@ -285,7 +287,7 @@ NGINX＋Lua实现方案预期在到达分流目的同时，需要有到达其它
             
             
               
-                基于ngx_lua的分流系统设计
+                nginx中锁的实现
               
             
           </h1>
@@ -300,7 +302,7 @@ NGINX＋Lua实现方案预期在到达分流目的同时，需要有到达其它
               
                 <span class="post-meta-item-text">Veröffentlicht am</span>
               
-              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-03-09T20:05:29+08:00">
+              <time title="Post created" itemprop="dateCreated datePublished" datetime="2017-03-09T20:17:12+08:00">
                 2017-03-09
               </time>
             
@@ -336,22 +338,31 @@ NGINX＋Lua实现方案预期在到达分流目的同时，需要有到达其它
       
 
       
-        <h3 id="导言"><a href="#导言" class="headerlink" title="导言"></a>导言</h3><p>为了在接入层面做到对请求精细化的控制和导流，需要在nginx上做分流的工作，解决包括但不限于几种需求，如版本上线，灰度发布、特殊用户，特殊版本等。其工作流程如下：</p>
-<p><img src="/img/基于ngx_lua的分流系统设计/1.png" alt=""></p>
-<p>在业务侧，可以根据需求将其业务节点划分为组，可以按照自己定制的策略来反馈给nginx，根据需求来导流相应分组。</p>
-<h3 id="NGINX＋Lua实现"><a href="#NGINX＋Lua实现" class="headerlink" title="NGINX＋Lua实现"></a>NGINX＋Lua实现</h3><h4 id="方案预期"><a href="#方案预期" class="headerlink" title="方案预期"></a>方案预期</h4><p>在到达分流目的同时，需要有到达其它几个目的：<br>1 配置方便，兼容其它功能<br>如果某个服务需要接入分流系统，SRE可以清晰清楚且便捷的配置即可，不会影响其它的功能，不需要有其它冗余的操作或交流。</p>
-<p>2 提供降级开关<br>响应业务需求，SRE或者业务需求发能够方便地选择开启或者关闭某个分流需求，甚至不需要对nginx做重启操作</p>
-<p>3 即配即走，不重启NGINX<br>我们希望能够到达即配即走的效果，不重启NGINX。（当然接入分流系统时配置文件的变更，SRE需要重启）<br>（事实上如果业务接入了其它lua的功能，那么连配置都不用更改，直接走新的Lua框架即可生效）</p>
-<p>4 系统轻巧，耦合度低<br>希望将系统做的足够轻巧，能够掌握整改分流过程和生效过程，方便及时排查问题，不影响其它业务。</p>
-<p>5 高容错性<br>系统不应该对请求有伤害，包括系统不可用时、分流集群不合法时等意外情况下，都要保重请求的正常。</p>
-<p>6 流量统计<br>能够从对分流情况有明确的感知和了解，包括每个分流集群的qps、响应时间等。</p>
-<h3 id="方案设计"><a href="#方案设计" class="headerlink" title="方案设计"></a>方案设计</h3><h4 id="方案架构"><a href="#方案架构" class="headerlink" title="方案架构"></a>方案架构</h4><p>为了达到上面几个目的，构件了一套轻巧的系统。核心思想为表驱动的方式：以业务的appkey为索引，通过查表找出该业务需要分流的策略，将具体分流策略下放，加载策略进行分流。</p>
-<p><img src="/img/基于ngx_lua的分流系统设计/2.png" alt=""></p>
-<p>在请求来临时，取出appkey，查找分流数据，执行分流策略。每个不同的分流逻辑在不同的分流文件里面完成。<br>该表时刻处于变化中，从第三方存储中定时加载到nginx共享内存。其分流流程如下：</p>
-<p><img src="/img/基于ngx_lua的分流系统设计/3.png" alt=""></p>
-<p>分流数据的更新逻辑如下：<br>方案一：<br><img src="/img/基于ngx_lua的分流系统设计/4.png" alt=""></p>
-<p>当管理机把更新的表推送到redis后，每个nginx会从redis里面定时拉取该表，缓存入nginx的共享内存。<br>该方案优势：<br>1 每个分流的Nginx都可以自己拉取，只要有定时拉取的逻辑<br>存在的问题：<br>1 单个worker拉取，需要patch tengine源码，担心会造成问题<br>2 每个nginx定时轮询，且定时时间短</p>
-<p>方案二：<br><img src="/img/基于ngx_lua的分流系统设计/5.png" alt=""><br>通过http接口，在每次数据真正变更时候走http来更新每个分流nginx的内存，并将最新的一份数据存储在redis里面容灾。<br>优势：<br>1 不用定时器，即不需patch源码<br>2 在数据真正变动时进行更新，没有无谓轮询。</p>
+        <p>草稿版，后续整理</p>
+<p>1 和nginx中自建内存池一样，共享内存也用slab来管理，减少系统调用次数<br>2 无阻塞锁和自旋锁的实现都建立在共享内存的基础上 </p>
+<p>在锁结构ngx_shmtx_t中的lock指向了某处共享内存的地址，对这块地址的操作和赋值就代表对锁的争抢。<br>这里的赋值操作都是gcc中的原子变量操作 。 </p>
+<p>无阻塞锁和自旋锁都是ngx_shmtx_t，只不过对于获取锁的方式不一样。（获取的意思是将该共享内存的某个地址的数据置位或者填入自己的workerpid，标明我成功抢锁）</p>
+<p>无阻塞方式获取：获取不到，立即返回<br>自旋锁：获取不到，等待一会再去获取，但是这段时间不释放CPU，忙等，但让cpu进入省电模式（pause.(微笑). ）（自旋锁的设计就是为那些占据时间很短的锁而出现的）</p>
+<p><img src="/img/nginx中锁的实现/1.png" alt=""><br>上面就是无阻塞锁，下面是自旋锁，红色方框中是原子操作。</p>
+<p>1  ngx_atomic_t 这个类型是在前面加了volatile的，防止被优化，对其不能进行原子操作了。<br>另外，如果某个变量被定义为ngx_atomic_t，那么一半定义为指针，然后指向共享内存中，进行原子操作。<br>例子：<br> (void) ngx_atomic_fetch_add(ngx_stat_accepted, 1);<br> 这个就是对共享内存里的监控状态字段accetp进行操作</p>
+<p><img src="/img/nginx中锁的实现/2.png" alt=""> </p>
+<p>用gcc的潜入汇编进行原子操作<br>状态码的定义：</p>
+<p><img src="/img/nginx中锁的实现/3.png" alt=""> </p>
+<p>真实的赋值在共享内存中：</p>
+<p><img src="/img/nginx中锁的实现/4.png" alt=""> </p>
+<p>即都指向了共享内存中。</p>
+<p>－－－－nginx中时间缓存的解析－－－－－</p>
+<p>2  困惑在ngx_update_time中:</p>
+<p><img src="/img/nginx中锁的实现/5.png" alt=""> </p>
+<p>问题在于 ngx_time_lock我看了下，不是个在共享内存中的变量。。。。</p>
+<p>哦，懂了，是每个worker都独自为战地管理自己的时间，每个worker都有自己的时间缓存，并不是所有worker共享一个时间缓存。（开始看了老半天，后来才发现时各个进程各自管理自己的时间缓存）</p>
+<p><img src="/img/nginx中锁的实现/6.png" alt=""> </p>
+<p>而代码里面把这个这么写，是为了后续的多线程池而考虑的。在没有开启多线程池的模式下，可以忽略。</p>
+<p>另外原子变量的应用：只是为了确保在使用原子操作时候的连续性，对这个原子变量所处的位置（进程内还是共存中）没有限制的。</p>
+<p>4 为何要进行时间缓存：<br>这就是时间缓存的原因：很多地方需要时间，但是不一定要十分精确，这样缓存时间<br>做到“及时”更新，减少系统调用。<br>比如要获取在1s中内要连续获取10000次时间，那么我可以每间隔500ms进行一次缓存，虽然时间精度不准，但是够用，而且只进行两次系统调用</p>
+<p>下面截图：<br><img src="/img/nginx中锁的实现/7.png" alt=""> </p>
+<p>另外时间slot也是一个设计很精妙的地方</p>
+<p>5 和时间相关的：epoll_wait醒来有几种情况：1 socket事件发生，2 超时，3 被信号中断<br>其中第三种情况容易忽视：在nginx配置文件中，如果设置了ngx_timer_resolution,则会设置一个定时器，定时产生SIGARGM信号，此时epoll_wait中超时timer的参数为-1,表示永远不超时，此时由SIGARGM信号来定时<br>中断唤醒epoll（当没有socket时间发生时）。当然，如果没有配置ngx_timer_resolution，则依然会用红黑树定时器中的最小超时时间来作为timer</p>
 
       
     </div>
@@ -382,8 +393,8 @@ NGINX＋Lua实现方案预期在到达分流目的同时，需要有到达其它
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/2017/03/09/https基础知识学习/" rel="next" title="https基础知识学习">
-                <i class="fa fa-chevron-left"></i> https基础知识学习
+              <a href="/2017/03/09/基于ngx-lua的分流系统设计/" rel="next" title="基于ngx_lua的分流系统设计">
+                <i class="fa fa-chevron-left"></i> 基于ngx_lua的分流系统设计
               </a>
             
           </div>
@@ -392,8 +403,8 @@ NGINX＋Lua实现方案预期在到达分流目的同时，需要有到达其它
 
           <div class="post-nav-prev post-nav-item">
             
-              <a href="/2017/03/09/nginx中锁的实现/" rel="prev" title="nginx中锁的实现">
-                nginx中锁的实现 <i class="fa fa-chevron-right"></i>
+              <a href="/2017/03/09/Nginx中Set变量的“来龙去脉/" rel="prev" title="Nginx中Set变量的“来龙去脉">
+                Nginx中Set变量的“来龙去脉 <i class="fa fa-chevron-right"></i>
               </a>
             
           </div>
@@ -441,17 +452,8 @@ NGINX＋Lua实现方案预期在到达分流目的同时，需要有到达其它
       
 
       
-        <ul class="sidebar-nav motion-element">
-          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
-            Inhaltsverzeichnis
-          </li>
-          <li class="sidebar-nav-overview" data-target="site-overview">
-            Übersicht
-          </li>
-        </ul>
-      
 
-      <section class="site-overview sidebar-panel">
+      <section class="site-overview sidebar-panel sidebar-panel-active">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
           <img class="site-author-image" itemprop="image"
                src="/images/avatar.gif"
@@ -495,22 +497,6 @@ NGINX＋Lua实现方案预期在到达分流目的同时，需要有到达其它
 
       </section>
 
-      
-      <!--noindex-->
-        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
-          <div class="post-toc">
-
-            
-              
-            
-
-            
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#导言"><span class="nav-number">1.</span> <span class="nav-text">导言</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#NGINX＋Lua实现"><span class="nav-number">2.</span> <span class="nav-text">NGINX＋Lua实现</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#方案预期"><span class="nav-number">2.1.</span> <span class="nav-text">方案预期</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#方案设计"><span class="nav-number">3.</span> <span class="nav-text">方案设计</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#方案架构"><span class="nav-number">3.1.</span> <span class="nav-text">方案架构</span></a></li></ol></li></ol></div>
-            
-
-          </div>
-        </section>
-      <!--/noindex-->
       
 
       
