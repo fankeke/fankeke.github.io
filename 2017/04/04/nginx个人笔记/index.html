@@ -97,12 +97,17 @@ http流如果作为http来解释tcp流的话，其ls-&amp;gt;handler为ngx_http_
 <meta property="og:description" content="ls-&amp;gt;handler钩子ls结构体代表的是一个监听结构体，它的handler成员会随着nginx在哪一层来解释tcp流有所不不同
 
 http流如果作为http来解释tcp流的话，其ls-&amp;gt;handler为ngx_http_init_connection(注：ls-&amp;gt;handler的设置在解析http{}块的最后几步ngx_http_optimize_servers中设置的回调，">
-<meta property="og:updated_time" content="2017-04-04T01:24:26.000Z">
+<meta property="og:image" content="http://yoursite.com/img/nginx个人笔记/1.png">
+<meta property="og:image" content="http://yoursite.com/img/nginx个人笔记/2.png">
+<meta property="og:image" content="http://yoursite.com/img/nginx个人笔记/3.png">
+<meta property="og:image" content="http://yoursite.com/img/nginx个人笔记/4.png">
+<meta property="og:updated_time" content="2017-04-04T01:39:53.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="nginx个人笔记">
 <meta name="twitter:description" content="ls-&amp;gt;handler钩子ls结构体代表的是一个监听结构体，它的handler成员会随着nginx在哪一层来解释tcp流有所不不同
 
 http流如果作为http来解释tcp流的话，其ls-&amp;gt;handler为ngx_http_init_connection(注：ls-&amp;gt;handler的设置在解析http{}块的最后几步ngx_http_optimize_servers中设置的回调，">
+<meta name="twitter:image" content="http://yoursite.com/img/nginx个人笔记/1.png">
 
 
 
@@ -260,7 +265,7 @@ http流如果作为http来解释tcp流的话，其ls-&amp;gt;handler为ngx_http_
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="fantaotao">
       <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="image" content="/images/person.PNG">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -349,7 +354,17 @@ http流如果作为http来解释tcp流的话，其ls-&amp;gt;handler为ngx_http_
 <li><p>添加一种和event、http同等级的模块，写完后，发现配置指令错误：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line">sudo ./nginx-1.6.2/obj/nginx -p `pwd` -c conf/nginx.conf -t</div><div class="line">nginx:[emerg] &quot;xxx&quot; directive is not allowed here in /home/ke/test/web_server/nginx/try/conf/nginx.conf:17</div><div class="line">nginx:configuration file /home/ke/test/web_server/nginx/try/conf/nginx.conf test failed</div><div class="line"></div><div class="line">配置示例如下：</div><div class="line">events &#123;</div><div class="line">    worker_connection 1024;</div><div class="line">&#125;</div><div class="line"></div><div class="line">mylevel &#123;</div><div class="line">    xxx;</div><div class="line">&#125;</div><div class="line">后来发现问题是block钩子没有解析完导致的，把ngx_xxx_block解析写完成即可</div></pre></td></tr></table></figure>
 </li>
+<li><p>纠正关于Nginx命令解析时候offset的作用的影响</p>
+</li>
 </ul>
+<p>以前在写cmd时候，以为offsetof(xxx,xx) 写了之后，就会对最后调用set函数时的conf有影响，即已经帮你找到了最终需要操作的字段。<br>现在经过验证，其实offsetof字段没有参与conf计算，你需要根据offsetof来自己确定最终的字段。如下：</p>
+<p><img src="/img/nginx个人笔记/1.png" alt=""></p>
+<p><img src="/img/nginx个人笔记/2.png" alt=""></p>
+<p>最后经过debug调试:</p>
+<p><img src="/img/nginx个人笔记/3.png" alt=""></p>
+<p>打印出来的conf都是同一个位置，即loc_conf结构体，而并没有去在帮你找到具体的字段，需要你自己根据offsetof来找。parse_conf函数也证明了这点,即在拿到conf的时候并没有offset的参与:</p>
+<p><img src="/img/nginx个人笔记/4.png" alt=""></p>
+<p>那么既然是这样，为何还要设置offsetof字段呢？反正可以通过conf来得到结构体，然后利用结构体就可以取得各个字段了。<br>其实，如果是自己写的set函数，这个offsetof是没有啥作用的，但是在采用预定义的那些set（如ngx_conf_set_flag_slot等），这时候就必须指定offsetof了，因为预定义的set使用了offsetof直接拿到具体的字段。</p>
 
       
     </div>
@@ -448,7 +463,7 @@ http流如果作为http来解释tcp流的话，其ls-&amp;gt;handler为ngx_http_
       <section class="site-overview sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
           <img class="site-author-image" itemprop="image"
-               src="/images/avatar.gif"
+               src="/images/person.PNG"
                alt="fantaotao" />
           <p class="site-author-name" itemprop="name">fantaotao</p>
            
