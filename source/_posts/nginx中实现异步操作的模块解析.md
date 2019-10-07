@@ -1,6 +1,9 @@
 ---
 title: nginx中实现异步操作的模块解析
 date: 2019-10-07 14:46:23
+password: 12345678
+abstract: need passwd
+message:  输入密码，查看文章
 tags:
 ---
 

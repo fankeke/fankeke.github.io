@@ -88,6 +88,8 @@ search:
   format: html
   limit: 10000
 
+encrypt:
+  enable: true
 
 symbols_count_time:
   symbols: true
