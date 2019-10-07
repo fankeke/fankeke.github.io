@@ -55,57 +55,31 @@
   };
 </script>
 
-  <meta name="description" content="一 配置示例 以上面的Nginx配置为例，本次讨论都基于这个配置文件。在配置中忽略了一些额外选项。只保留了http块，server块，location块。 二 配置文件解析过程Nginx是在将配置文件解析和加载完之后，然后开始fork子进程，进行连接处理。所以对于明白Nginx是如何加载配置文件以及加载后发生了什么很有必要理解清楚。在加载和解析配置文件时，主要的工作就是调用各个模块的（包括核心模块">
-<meta property="og:type" content="article">
-<meta property="og:title" content="Nginx配置文件与运行时的逻辑关系浅谈">
-<meta property="og:url" content="http://yoursite.com/2019/09/30/Nginx配置文件与运行时的逻辑关系浅谈/index.html">
+  <meta name="description" content="《红与黑》">
+<meta property="og:type" content="website">
+<meta property="og:title" content="个人博客">
+<meta property="og:url" content="http://yoursite.com/page/2/index.html">
 <meta property="og:site_name" content="个人博客">
-<meta property="og:description" content="一 配置示例 以上面的Nginx配置为例，本次讨论都基于这个配置文件。在配置中忽略了一些额外选项。只保留了http块，server块，location块。 二 配置文件解析过程Nginx是在将配置文件解析和加载完之后，然后开始fork子进程，进行连接处理。所以对于明白Nginx是如何加载配置文件以及加载后发生了什么很有必要理解清楚。在加载和解析配置文件时，主要的工作就是调用各个模块的（包括核心模块">
+<meta property="og:description" content="《红与黑》">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image1.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image2.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image3.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image4.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image5.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image6.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image7.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image8.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image9.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image10.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image11.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image12.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image13.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image14.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image15.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image16.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image17.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image18.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image19.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image20.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image21.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image22.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image23.png">
-<meta property="og:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image24.png">
-<meta property="og:updated_time" content="2019-09-30T12:49:56.997Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Nginx配置文件与运行时的逻辑关系浅谈">
-<meta name="twitter:description" content="一 配置示例 以上面的Nginx配置为例，本次讨论都基于这个配置文件。在配置中忽略了一些额外选项。只保留了http块，server块，location块。 二 配置文件解析过程Nginx是在将配置文件解析和加载完之后，然后开始fork子进程，进行连接处理。所以对于明白Nginx是如何加载配置文件以及加载后发生了什么很有必要理解清楚。在加载和解析配置文件时，主要的工作就是调用各个模块的（包括核心模块">
-<meta name="twitter:image" content="http://yoursite.com/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image1.png">
-  <link rel="canonical" href="http://yoursite.com/2019/09/30/Nginx配置文件与运行时的逻辑关系浅谈/">
+<meta name="twitter:title" content="个人博客">
+<meta name="twitter:description" content="《红与黑》">
+  <link rel="canonical" href="http://yoursite.com/page/2/">
 
 
 <script id="page-configurations">
   // https://hexo.io/docs/variables.html
   CONFIG.page = {
     sidebar: "",
-    isHome: false,
-    isPost: true,
+    isHome: true,
+    isPost: false,
     isPage: false,
     isArchive: false
   };
 </script>
 
-  <title>Nginx配置文件与运行时的逻辑关系浅谈 | 个人博客</title>
+  <title>个人博客</title>
   
 
 
@@ -264,13 +238,12 @@
 
           <div id="content" class="content">
             
-
   <div id="posts" class="posts-expand">
-      <article itemscope itemtype="http://schema.org/Article">
+        <article itemscope itemtype="http://schema.org/Article">
   
   
   
-  <div class="post-block post">
+  <div class="post-block home">
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/09/30/Nginx配置文件与运行时的逻辑关系浅谈/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -283,8 +256,9 @@
       <meta itemprop="name" content="个人博客">
     </span>
       <header class="post-header">
-        <h1 class="post-title" itemprop="name headline">Nginx配置文件与运行时的逻辑关系浅谈
-
+        <h1 class="post-title" itemprop="name headline">
+            
+            <a href="/2019/09/30/Nginx配置文件与运行时的逻辑关系浅谈/" class="post-title-link" itemprop="url">Nginx配置文件与运行时的逻辑关系浅谈</a>
           
         </h1>
 
@@ -307,14 +281,6 @@
             
           
 
-          
-            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-eye"></i>
-              </span>
-              <span class="post-meta-item-text">阅读次数：</span>
-              <span id="busuanzi_value_page_pv"></span>
-            </span>
           
           <br>
             <span class="post-meta-item" title="本文字数">
@@ -347,7 +313,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <h2 id="一-配置示例"><a href="#一-配置示例" class="headerlink" title="一 配置示例"></a>一 配置示例</h2><p><img src="/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image1.png" alt></p>
+          <h2 id="一-配置示例"><a href="#一-配置示例" class="headerlink" title="一 配置示例"></a>一 配置示例</h2><p><img src="/images/Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E4%B8%8E%E8%BF%90%E8%A1%8C%E6%97%B6%E7%9A%84%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E6%B5%85%E8%B0%88/image1.png" alt></p>
 <p>以上面的Nginx配置为例，本次讨论都基于这个配置文件。在配置中忽略了一些额外选项。只保留了http块，server块，location块。</p>
 <h2 id="二-配置文件解析过程"><a href="#二-配置文件解析过程" class="headerlink" title="二 配置文件解析过程"></a>二 配置文件解析过程</h2><p>Nginx是在将配置文件解析和加载完之后，然后开始fork子进程，进行连接处理。所以对于明白Nginx是如何加载配置文件以及加载后发生了什么很有必要理解清楚。<br>在加载和解析配置文件时，主要的工作就是调用各个模块的（包括核心模块，http模块等内置模块，也包括第三方模块）钩子函数。<br>而每个不同类型的模块的关键不同之处在于它们的ctx结构体的不同，具体如下：</p>
 <p>CORE类型:</p>
@@ -415,43 +381,30 @@
 <p>所以，指令的配置顺序不能和请求的执行顺序相等。</p>
 <h2 id="六-rewrite指令详解"><a href="#六-rewrite指令详解" class="headerlink" title="六 rewrite指令详解"></a>六 rewrite指令详解</h2><p>//待续</p>
 
+        
+      
     </div>
 
     
     
     
-        
-      
-
       <footer class="post-footer">
-
-        
-
-          <div class="post-nav">
-            <div class="post-nav-next post-nav-item">
-              
-            </div>
-
-            <span class="post-nav-divider"></span>
-
-            <div class="post-nav-prev post-nav-item">
-              
-                <a href="/2019/09/30/nginx中IP与证书的数量关系/" rel="prev" title="nginx中IP与证书的数量关系">
-                  nginx中IP与证书的数量关系 <i class="fa fa-chevron-right"></i>
-                </a>
-              
-            </div>
-          </div>
+          <div class="post-eof"></div>
         
       </footer>
-    
   </div>
   
   
   
   </article>
 
+    
   </div>
+
+  
+  <nav class="pagination">
+    <a class="extend prev" rel="prev" href="/"><i class="fa fa-angle-left" aria-label="上一页"></i></a><a class="page-number" href="/">1</a><span class="page-number current">2</span>
+  </nav>
 
 
           </div>
@@ -470,11 +423,6 @@
 
   <aside class="sidebar">
     <div class="sidebar-inner">
-        
-        
-        
-        
-      
 
       <ul class="sidebar-nav motion-element">
         <li class="sidebar-nav-toc">
@@ -487,8 +435,6 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#一-配置示例"><span class="nav-number">1.</span> <span class="nav-text">一 配置示例</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#二-配置文件解析过程"><span class="nav-number">2.</span> <span class="nav-text">二 配置文件解析过程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-遇到events子段被ngx-event-block激活的情况："><span class="nav-number">2.1.</span> <span class="nav-text">1 遇到events子段被ngx_event_block激活的情况：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-遇到http子段被ngx-http-block激活的情况（关键点）"><span class="nav-number">2.2.</span> <span class="nav-text">2 遇到http子段被ngx_http_block激活的情况（关键点）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#三-解析后的布局"><span class="nav-number">3.</span> <span class="nav-text">三 解析后的布局</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-基本配置的布局"><span class="nav-number">3.1.</span> <span class="nav-text">1 基本配置的布局</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2增添一个模块后的布局图"><span class="nav-number">3.2.</span> <span class="nav-text">2增添一个模块后的布局图</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#四-配置指令与请求处理顺序的相互作用"><span class="nav-number">4.</span> <span class="nav-text">四 配置指令与请求处理顺序的相互作用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#1-请求的11个处理阶段"><span class="nav-number">4.1.</span> <span class="nav-text">1 请求的11个处理阶段</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2-注册钩子"><span class="nav-number">4.2.</span> <span class="nav-text">2 注册钩子</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-配置指令与钩子间的执行关系"><span class="nav-number">4.3.</span> <span class="nav-text">3 配置指令与钩子间的执行关系</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#1-指令出现与否的与钩子的关系"><span class="nav-number">4.3.1.</span> <span class="nav-text">1 指令出现与否的与钩子的关系</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#2-指令出现的位置与钩子函数的关系"><span class="nav-number">4.3.2.</span> <span class="nav-text">2 指令出现的位置与钩子函数的关系</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#五-指令配置顺序与请求执行顺序"><span class="nav-number">5.</span> <span class="nav-text">五 指令配置顺序与请求执行顺序</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#六-rewrite指令详解"><span class="nav-number">6.</span> <span class="nav-text">六 rewrite指令详解</span></a></li></ol></div>
-        
       </div>
       <!--/noindex-->
 
