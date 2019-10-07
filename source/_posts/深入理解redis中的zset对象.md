@@ -254,4 +254,4 @@ Fred 87.5
 
 
 
-参考：http://zhangtielei.com/posts/blog-redis-skiplist.html （强烈推荐）
+* 参考：http://zhangtielei.com/posts/blog-redis-skiplist.html （强烈推荐）
